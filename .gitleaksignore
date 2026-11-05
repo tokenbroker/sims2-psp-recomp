@@ -1,1 +1,4 @@
-# Reviewed public source constants; exact fingerprints are recorded after scanning.
+# Reviewed public code: FNV hash seed, upstream AES example, ImGui key range.
+0312dfde5a62b5ea10dcec4c3b840337fe1a1d79:profiles/sims2/host/gpu/texture_decode.cpp:generic-api-key:479
+0312dfde5a62b5ea10dcec4c3b840337fe1a1d79:profiles/sims2/third_party/tiny_aes/aes.c:generic-api-key:18
+0312dfde5a62b5ea10dcec4c3b840337fe1a1d79:profiles/sims2/third_party/imgui/imgui.cpp:generic-api-key:4163
