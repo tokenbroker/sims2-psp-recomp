@@ -1,0 +1,27 @@
+{
+  "$schema": "https://recomplauncher.com/schema/recomplauncher.json",
+  "format": 1,
+  "name": "The Sims 2 PSP",
+  "game": {
+    "kind": "iso",
+    "label": "Your USA The Sims 2 PSP ISO (ULUS-10031). Development build; later gameplay remains unverified.",
+    "check": { "iso9660": "UMD_DATA.BIN" }
+  },
+  "start": {
+    "program": ["sims2.exe"],
+    "args": ["{install}/game/PSP_GAME/SYSDIR/BOOT.BIN", "{game}"],
+    "env": { "SIMS2_WINDOW": "1", "SIMS2_MEMSTICK": "{local}/Sims2PSPRecomp/memstick" }
+  },
+  "prepare": {
+    "program": ["sims2_setup.exe"],
+    "args": ["{game}", "--output-dir", "{install}/game"],
+    "label": "Validate your USA disc and prepare the game",
+    "timeout": 120
+  },
+  "saves": ["{local}/Sims2PSPRecomp/memstick/PSP/SAVEDATA"],
+  "exit_codes": {
+    "1": "The game could not start or reached an unsupported feature. Check %LOCALAPPDATA%/Sims2PSPRecomp/logs/latest.log.",
+    "2": "The game was started with invalid arguments.",
+    "3": "The development build reached a runtime stopping point. See its output for the stopping reason or missing feature."
+  }
+}

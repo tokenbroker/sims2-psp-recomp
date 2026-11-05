@@ -1,0 +1,16 @@
+// Adapted from bigmission-recomp (MIT). See profile THIRD_PARTY.md.
+#pragma once
+
+// Shift-JIS, the game's text encoding, to UTF-8 for the host's terminal and
+// tools.
+#include <string>
+#include <string_view>
+
+namespace sims2::text {
+
+// Converts `text` with iconv, or code page 932 on Windows; bytes that are not
+// valid Shift-JIS (and every non-ASCII byte where the host has no converter)
+// become \xNN escapes.
+[[nodiscard]] std::string shift_jis_to_utf8(std::string_view text);
+
+} // namespace sims2::text

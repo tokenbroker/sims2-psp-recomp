@@ -1,0 +1,52 @@
+// Adapted from bigmission-recomp (MIT). See ../THIRD_PARTY.md in the profile root.
+#include "startup_hle.hpp"
+
+#include <cstdlib>
+#include <iostream>
+
+namespace {
+void require(bool condition, const char *message) {
+    if (!condition) {
+        std::cerr << "FAIL: " << message << '\n';
+        std::exit(1);
+    }
+}
+}
+
+int main() {
+    psprecomp::Runtime runtime;
+    sims2::StartupHle hle;
+    hle.install(runtime);
+    auto &cpu = runtime.cpu();
+
+    cpu.set_gpr(4u, 0x06060110u);
+    cpu.set_gpr(2u, 0xFFFFFFFFu);
+    runtime.invoke_import("SysMemUserForUser", 0x7591C7DBu, cpu);
+    require(!runtime.stopped(), "compiled SDK import stopped runtime");
+    require(hle.compiled_sdk_version() == 0x06060110u, "compiled SDK version was not retained");
+    require(cpu.gpr[2] == 0u, "compiled SDK import did not return zero");
+
+    cpu.set_gpr(4u, 0x12345678u);
+    cpu.set_gpr(2u, 0xFFFFFFFFu);
+    runtime.invoke_import("SysMemUserForUser", 0xF77D77CBu, cpu);
+    require(!runtime.stopped(), "compiler-version import stopped runtime");
+    require(hle.compiler_version() == 0x12345678u, "compiler version was not retained");
+    require(cpu.gpr[2] == 0u, "compiler-version import did not return zero");
+
+    cpu.set_gpr(4u, 0x1A5u);
+    runtime.invoke_import("UtilsForUser", 0x6AD345D7u, cpu);
+    require(!runtime.stopped() && hle.gpo() == 0xA5u && cpu.gpr[2] == 0u, "GPO value not retained");
+    cpu.set_gpr(2u, 0xFFFFFFFFu);
+    runtime.invoke_import("UtilsForUser", 0x3EE30821u, cpu);
+    require(!runtime.stopped() && cpu.gpr[2] == 0u, "cache writeback import failed");
+    cpu.set_gpr(4u, 0u);
+    runtime.invoke_import("sceSuspendForUser", 0x090CCB3Fu, cpu);
+    require(!runtime.stopped() && cpu.gpr[2] == 0u && hle.power_ticks() == 1u, "power tick");
+    runtime.invoke_import("sceSuspendForUser", 0xEADB1BD7u, cpu);
+    runtime.invoke_import("sceSuspendForUser", 0xEADB1BD7u, cpu);
+    require(hle.power_locks() == 2u && cpu.gpr[2] == 0u, "nested suspend locks");
+    runtime.invoke_import("sceSuspendForUser", 0x3AEE7261u, cpu);
+    runtime.invoke_import("sceSuspendForUser", 0x3AEE7261u, cpu);
+    require(hle.power_locks() == 0u && cpu.gpr[2] == 0u, "suspend lock balancing");
+    return 0;
+}

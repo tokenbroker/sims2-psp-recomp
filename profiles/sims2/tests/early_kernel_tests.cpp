@@ -1,0 +1,228 @@
+// Adapted from bigmission-recomp (MIT). See ../THIRD_PARTY.md in the profile root.
+#include "kernel/early_kernel.hpp"
+
+#include <cstdlib>
+#include <iostream>
+
+namespace {
+void require(bool condition, const char *message) {
+    if (!condition) { std::cerr << "FAIL: " << message << '\n'; std::exit(1); }
+}
+
+// Simulates being inside an import called from `return_address`.
+void at_call(psprecomp::AllegrexContext &cpu, std::uint32_t return_address) {
+    cpu.pc = 0x08A00000u;
+    cpu.set_gpr(31u, return_address);
+}
+
+void test_timed_waits() {
+    using sims2::kernel::EarlyKernel;
+    psprecomp::Runtime runtime;
+    EarlyKernel kernel;
+    kernel.install(runtime, 0x08804000u, 0x0A000000u);
+    auto &cpu = runtime.cpu();
+    cpu.pc = 0x08804444u;
+    kernel.begin_main_thread(cpu, "main", 0x20u);
+    const auto main_uid = kernel.current_uid();
+    const auto worker = kernel.create_thread("worker", 0x08805000u, 0x30u, 0x200u, 0u, 0u);
+    require(kernel.start_thread(cpu, worker, 0u, 0u) == 0 && kernel.current_uid() == main_uid,
+            "lower-priority worker preempted main");
+
+    // Guest code takes no time: blocking hands over at the same instant.
+    at_call(cpu, 0x08804600u);
+    kernel.delay_current_thread(cpu, 1000u);
+    require(kernel.current_uid() == worker && cpu.pc == 0x08805000u && kernel.now_us() == 0u,
+            "delay did not yield to ready worker");
+
+    // Idle advances straight to the earliest deadline and applies its result.
+    at_call(cpu, 0x08805100u);
+    kernel.wait_current_until(cpu, 500u, {EarlyKernel::ActionKind::ReturnValue, {7u}});
+    require(kernel.current_uid() == worker && cpu.pc == 0x08805100u && cpu.gpr[2] == 7u && kernel.now_us() == 500u,
+            "earliest timed wait did not complete first");
+
+    // A zero delay with nothing else ready resumes at once without advancing time.
+    at_call(cpu, 0x08805200u);
+    kernel.delay_current_thread(cpu, 0u);
+    require(kernel.current_uid() == worker && cpu.pc == 0x08805200u && kernel.now_us() == 500u,
+            "zero delay did not resume immediately");
+
+    at_call(cpu, 0x08805300u);
+    kernel.delay_current_thread(cpu, 2000u);
+    require(kernel.current_uid() == main_uid && cpu.pc == 0x08804600u && cpu.gpr[2] == 0u && kernel.now_us() == 1000u,
+            "main did not resume after its delay");
+
+    // Simultaneous deadlines: both wake, and priority decides who runs.
+    at_call(cpu, 0x08804700u);
+    kernel.delay_current_thread(cpu, 1500u);
+    require(kernel.current_uid() == main_uid && kernel.now_us() == 2500u &&
+                kernel.thread(worker)->state == EarlyKernel::ThreadState::Ready,
+            "simultaneous wakeups not ordered by priority");
+
+    sims2::kernel::register_early_threadman(kernel, runtime);
+    cpu.set_gpr(4u, 100u);
+    at_call(cpu, 0x08804800u);
+    runtime.invoke_import("ThreadManForUser", 0xCEADEB47u, cpu);
+    require(!runtime.stopped() && kernel.current_uid() == worker && cpu.pc == 0x08805300u,
+            "HLE delay did not switch threads");
+}
+void test_resumable_guest_call() {
+    using sims2::kernel::EarlyKernel;
+    psprecomp::Runtime runtime;
+    EarlyKernel kernel; kernel.install(runtime, 0x08804000u, 0x0A000000u);
+    auto &cpu = runtime.cpu();
+    cpu.pc = 0x08804444u; cpu.gpr[29] = 0x09FFF000u;
+    kernel.begin_main_thread(cpu, "main", 0x20u);
+    const auto main = kernel.current_uid();
+    const auto worker = kernel.create_thread("worker", 0x08806000u, 0x30u, 0x400u, 0u, 0u);
+    require(kernel.start_thread(cpu, worker, 0u, 0u) == 0, "callback worker start failed");
+    runtime.register_function(0x08805000u, [](psprecomp::Runtime &, psprecomp::AllegrexContext &) {}, "callback");
+    kernel.set_action_handler(EarlyKernel::ActionKind::MpegRingPut,
+        [](const EarlyKernel::Action &action) { return action.arguments[3] + action.arguments[0]; });
+    at_call(cpu, 0x08804500u); cpu.gpr[16] = 123u;
+    const auto stack = cpu.gpr[29];
+    const std::array<std::uint32_t, 2> args{42u, 99u};
+    kernel.start_guest_call(cpu, 0x08805000u, args, 0x08801234u,
+        {EarlyKernel::ActionKind::MpegRingPut, {10u}});
+    require(cpu.pc == 0x08805000u && cpu.gpr[4] == 42u && cpu.gpr[5] == 99u &&
+        cpu.gpr[28] == 0x08801234u && cpu.gpr[29] < stack, "callback ABI incorrect");
+    at_call(cpu, 0x08805100u); kernel.sleep_current_thread(cpu);
+    require(kernel.current_uid() == worker, "callback did not block");
+    at_call(cpu, 0x08806100u); kernel.wakeup_thread(cpu, main);
+    require(kernel.current_uid() == main && cpu.pc == 0x08805100u, "blocked callback did not resume");
+    cpu.gpr[16] = 999u; cpu.gpr[2] = 7u;
+    kernel.complete_guest_call(cpu);
+    require(cpu.pc == 0x08804500u && cpu.gpr[16] == 123u && cpu.gpr[29] == stack &&
+        cpu.gpr[2] == 17u && kernel.thread(main)->host_calls.empty(),
+        "callback continuation did not restore caller and return result");
+    at_call(cpu, 0x08804600u);
+    require(kernel.terminate_thread(cpu, worker, true) == 0 && kernel.thread(worker) == nullptr,
+        "terminate-delete retained guest thread");
+    require(kernel.current_uid() == main && cpu.gpr[2] == 0u,
+        "terminate-delete corrupted current thread");
+}
+}
+
+int main() {
+    test_timed_waits();
+    test_resumable_guest_call();
+    constexpr std::uint32_t name_address = 0x08806000u;
+    psprecomp::Runtime runtime;
+    sims2::kernel::EarlyKernel kernel;
+    kernel.install(runtime, 0x08804000u, 0x0A000000u);
+    const auto invalid_entry = kernel.create_thread("bad", 3u, 0x20u, 0x200u, 0u, 0u);
+    require(static_cast<std::uint32_t>(invalid_entry) == sims2::kernel::kIllegalEntry, "invalid entry accepted");
+    require(static_cast<std::uint32_t>(kernel.create_thread("bad", 0x08805000u, 0u, 0x200u, 0u, 0u)) ==
+        sims2::kernel::kIllegalPriority, "invalid priority accepted");
+    require(static_cast<std::uint32_t>(kernel.create_thread("bad", 0x08805000u, 0x20u, 0x1FFu, 0u, 0u)) ==
+        sims2::kernel::kIllegalStackSize, "undersized stack accepted");
+
+    const auto uid = kernel.create_thread("worker", 0x08805000u, 0x20u, 0x201u, 0x123u, 0x08801234u);
+    const auto *thread = kernel.thread(uid);
+    require(uid >= 0x100 && thread != nullptr, "valid thread missing");
+    require(thread->stack_size == 0x300u && thread->stack_bottom == 0x09FFFD00u, "stack allocation incorrect");
+    require(thread->name == "worker" && thread->gp == 0x08801234u, "thread metadata lost");
+    require(thread->control_block == 0x09FFFF00u && runtime.memory().load32(thread->control_block + 0xC0u) ==
+        static_cast<std::uint32_t>(uid), "thread control block missing");
+
+    const auto low = kernel.allocate_partition_memory("low", 3u, 0x101u, 0x1000u);
+    require(low >= 0x100 && kernel.block_head_address(low) == 0x08804000u, "low aligned allocation incorrect");
+    const auto high = kernel.allocate_partition_memory("high", 1u, 0x100u, 0u);
+    require(high >= 0x100 && kernel.block_head_address(high) < 0x09FFFD00u, "high allocation collided with stack");
+    require(kernel.free_partition_memory(low) == 0 && kernel.free_partition_memory(low) ==
+        static_cast<std::int32_t>(sims2::kernel::kIllegalMemblock), "block free validation incorrect");
+
+    auto &cpu = runtime.cpu();
+    for (unsigned i = 0; i < 3; ++i) runtime.memory().store8(name_address + i, "arg"[i]);
+    cpu.pc = 0x08804444u;
+    cpu.set_gpr(28u, 0x08801234u);
+    kernel.begin_main_thread(cpu, "main", 0x30u);
+    const auto main_uid = kernel.current_uid();
+    require(kernel.start_thread(cpu, uid, 3u, name_address) == 0, "thread start failed");
+    thread = kernel.thread(uid);
+    require(thread->state == sims2::kernel::EarlyKernel::ThreadState::Running && cpu.pc == 0x08805000u,
+            "higher-priority thread did not run");
+    require(cpu.gpr[4] == 3u && cpu.gpr[5] != 0u && cpu.gpr[26] == thread->control_block &&
+                cpu.gpr[31] == sims2::kernel::kThreadExitStub,
+            "thread context incorrect");
+
+    sims2::kernel::register_early_threadman(kernel, runtime);
+    for (unsigned i = 0; i < 7; ++i) runtime.memory().store8(name_address + i, "guest\0"[i]);
+    cpu.set_gpr(4u, name_address); cpu.set_gpr(5u, 0x08807000u); cpu.set_gpr(6u, 0x21u);
+    cpu.set_gpr(7u, 0x400u); cpu.set_gpr(8u, 0u); cpu.set_gpr(28u, 0x08801234u);
+    runtime.invoke_import("ThreadManForUser", 0x446D8DE6u, cpu);
+    const auto guest_uid = static_cast<sims2::kernel::ThreadUid>(cpu.gpr[2]);
+    thread = kernel.thread(guest_uid);
+    require(!runtime.stopped() && thread != nullptr && thread->name == "guest", "HLE thread creation failed");
+
+    const auto callback_uid = kernel.create_callback("exit", 0x08809000u, 0xCAFEBABEu);
+    const auto *callback = kernel.callback(callback_uid);
+    require(callback != nullptr && callback->function == 0x08809000u && callback->common == 0xCAFEBABEu &&
+                callback->owner == kernel.current_uid(),
+            "callback creation lost state");
+    require(static_cast<std::uint32_t>(kernel.create_callback("bad", 1u, 0u)) == sims2::kernel::kIllegalArgument,
+            "unaligned callback entry accepted");
+    require(kernel.register_exit_callback(callback_uid) == 0 && kernel.callback(callback_uid)->registered_as_exit,
+            "exit callback registration failed");
+    require(static_cast<std::uint32_t>(kernel.register_exit_callback(123)) == sims2::kernel::kIllegalArgument,
+            "unknown exit callback accepted");
+    require(kernel.register_power_callback(-1, callback_uid) == 0, "automatic power callback slot failed");
+    require(kernel.register_power_callback(0, callback_uid) == static_cast<std::int32_t>(sims2::kernel::kPowerSlotsFull),
+            "occupied power callback slot accepted");
+    require(static_cast<std::uint32_t>(kernel.register_power_callback(16, callback_uid)) ==
+                sims2::kernel::kPowerInvalidSlot,
+            "invalid power callback slot accepted");
+    require(static_cast<std::uint32_t>(kernel.register_power_callback(-1, 999)) == sims2::kernel::kPowerInvalidCallback,
+            "unknown power callback accepted");
+    require(static_cast<std::uint32_t>(kernel.register_umd_callback(999)) == sims2::kernel::kIllegalArgument &&
+                kernel.register_umd_callback(callback_uid) == 0 && kernel.umd_callback() == callback_uid,
+            "UMD callback registration incorrect");
+    require(kernel.interrupts_enabled() && kernel.suspend_interrupts() == 1u && !kernel.interrupts_enabled(),
+            "interrupt suspend state incorrect");
+    require(kernel.suspend_interrupts() == 0u, "nested interrupt suspend state incorrect");
+    kernel.resume_interrupts(true);
+    require(kernel.interrupts_enabled(), "interrupt resume state incorrect");
+
+    // Starting an equal-priority worker makes it ready. The current worker's
+    // exit must hand execution to the earliest ready thread, never guest PC 0.
+    const auto next_uid = kernel.create_thread("next", 0x08808000u, 0x20u, 0x200u, 0u, 0u);
+    require(kernel.start_thread(cpu, next_uid, 0u, 0u) == 0, "ready worker start failed");
+    kernel.exit_current_thread(cpu, 0u);
+    thread = kernel.thread(next_uid);
+    require(!runtime.stopped() && thread != nullptr && thread->state == sims2::kernel::EarlyKernel::ThreadState::Running &&
+                cpu.pc == 0x08808000u,
+            "thread exit did not schedule ready worker");
+
+    // Sleeping inside an import hands over to the ready main thread; the
+    // sleeper later resumes at its return address, not the import stub.
+    using State = sims2::kernel::EarlyKernel::ThreadState;
+    cpu.pc = 0x08808040u;
+    cpu.set_gpr(31u, 0x08808100u);
+    kernel.sleep_current_thread(cpu);
+    require(!runtime.stopped() && kernel.current_uid() == main_uid && kernel.thread(next_uid)->state == State::Sleeping &&
+                kernel.thread(next_uid)->context.pc == 0x08808100u,
+            "sleep did not switch to ready thread");
+    require(static_cast<std::uint32_t>(kernel.wakeup_thread(cpu, 999)) == sims2::kernel::kUnknownThread,
+            "unknown thread wakeup accepted");
+    require(static_cast<std::uint32_t>(kernel.wakeup_thread(cpu, guest_uid)) == sims2::kernel::kDormant,
+            "dormant thread wakeup accepted");
+    cpu.pc = 0x08804500u;
+    cpu.set_gpr(31u, 0x08804600u);
+    cpu.set_gpr(2u, 0xDEADBEEFu);
+    require(kernel.wakeup_thread(cpu, next_uid) == 0 && kernel.current_uid() == next_uid && cpu.pc == 0x08808100u &&
+                cpu.gpr[2] == 0u && kernel.thread(main_uid)->state == State::Ready &&
+                kernel.thread(main_uid)->context.pc == 0x08804600u,
+            "higher-priority wakeup did not preempt");
+
+    // A pending wakeup makes the next sleep return at once.
+    require(kernel.wakeup_thread(cpu, 0) == 0 && kernel.thread(next_uid)->wakeup_count == 1u, "self wakeup not counted");
+    kernel.sleep_current_thread(cpu);
+    require(kernel.current_uid() == next_uid && kernel.thread(next_uid)->wakeup_count == 0u && cpu.gpr[2] == 0u,
+            "pending wakeup did not satisfy sleep");
+
+    // With every thread asleep the kernel stops explicitly rather than idling.
+    kernel.sleep_current_thread(cpu);
+    require(kernel.current_uid() == main_uid, "sleep did not resume main thread");
+    kernel.sleep_current_thread(cpu);
+    require(runtime.stopped() && kernel.current_uid() == 0, "all-asleep state did not stop");
+    return 0;
+}

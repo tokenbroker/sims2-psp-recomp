@@ -1,0 +1,7 @@
+cmake_minimum_required(VERSION 3.21)
+project(Sims2PSPLauncher LANGUAGES CXX)
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+add_executable(sims2_launcher WIN32 ../host/desktop_main.cpp)
+target_compile_definitions(sims2_launcher PRIVATE SIMS2_BACKEND_PATH="work/install/sims2_probe.exe")
+target_link_libraries(sims2_launcher PRIVATE user32 shell32)
