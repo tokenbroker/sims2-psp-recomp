@@ -99,9 +99,9 @@ cmake -S . -B out/profile-tests -G "Visual Studio 17 2022" -A x64 `
 
 Build the required `sims2_*_tests` targets before running CTest. Do not build the
 `sims2` target merely to relink a host-only test: that also builds every generated
-AOT unit. The CI template in `docs/ci-example.yml` runs source/publication checks and
-synthetic tests without access to a disc. To enable GitHub Actions, copy it to
-`.github/workflows/build.yml` using a GitHub login with workflow permission. Runtime changes should receive focused checks; exhaustive
+AOT unit. The GitHub Actions workflow in `.github/workflows/build.yml` runs Windows/Linux
+source/publication checks and synthetic tests without access to a disc. It runs
+on pushes, pull requests and manual dispatch. Runtime changes should receive focused checks; exhaustive
 playthrough testing is not required for each change.
 
 ## Optional source-installer packaging
@@ -153,5 +153,5 @@ ctest --test-dir out/host-tests -C Release --output-on-failure
 
 On Linux install the listed dependencies and run display tests under Xvfb or a
 headless compositor. The empty registration fixture cannot run a game and is
-never used by ISO setup. docs/ci-example.yml contains the Windows/Linux workflow;
-GitHub workflow publication requires the workflow OAuth scope.
+never used by ISO setup. `.github/workflows/build.yml` is the active Windows/Linux
+workflow; `docs/ci-example.yml` retains a matching example.

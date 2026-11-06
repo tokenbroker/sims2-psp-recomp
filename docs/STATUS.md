@@ -11,7 +11,7 @@ secret. Playtesting reports smooth gameplay and resolved audio choppiness.
 
 The project has 41 Windows automated checks covering the framework, kernel/HLE,
 I/O, save crypto, GE/display/audio, controller sampling, GPU rendering, settings
-persistence, input options, HDR conversion and presentation limits. The documented CI template uses synthetic framework tests and does not receive a game image.
+persistence, input options, HDR conversion and presentation limits. The GitHub Actions workflow uses synthetic host/framework tests on Windows and Linux and does not receive a game image.
 
 Focused rendering checks include native, 2x/4x/8x and fractional targets;
 texture-matrix menu highlights; framebuffer transfers/feedback; ultrawide and

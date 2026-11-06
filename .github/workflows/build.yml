@@ -1,0 +1,25 @@
+name: Source and host regressions
+on: [push, pull_request, workflow_dispatch]
+permissions:
+  contents: read
+jobs:
+  windows:
+    timeout-minutes: 30
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - run: python tools/check_public_tree.py
+      - run: python profiles/sims2/tools/fetch_dependencies.py
+      - run: cmake -S . -B out/ci -G "Visual Studio 17 2022" -A x64 -DPSPRECOMP_PROFILE=sims2 -DSIMS2_HOST_TESTS_ONLY=ON
+      - run: cmake --build out/ci --config Release --parallel 2
+      - run: ctest --test-dir out/ci -C Release --output-on-failure
+  linux:
+    timeout-minutes: 30
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - run: python3 tools/check_public_tree.py
+      - run: sudo apt-get update && sudo apt-get install -y ninja-build pkg-config glslang-tools libvulkan-dev mesa-vulkan-drivers libavcodec-dev libavutil-dev libfreetype-dev libfontconfig1-dev fonts-liberation libwayland-dev libxkbcommon-dev libdecor-0-dev libx11-dev libxext-dev libxrandr-dev libxcursor-dev libxi-dev libxss-dev libxtst-dev libasound2-dev libpulse-dev libdrm-dev libgbm-dev libegl1-mesa-dev libudev-dev xvfb
+      - run: cmake -S . -B out/ci -G Ninja -DCMAKE_BUILD_TYPE=Release -DPSPRECOMP_PROFILE=sims2 -DSIMS2_HOST_TESTS_ONLY=ON
+      - run: cmake --build out/ci --parallel 2
+      - run: SDL_VIDEO_DRIVER=x11 SDL_AUDIO_DRIVER=dummy SIMS2_SETTINGS_PATH="$PWD/out/ci/test-settings.ini" xvfb-run -a -s '-screen 0 1920x1080x24' ctest --test-dir out/ci --output-on-failure

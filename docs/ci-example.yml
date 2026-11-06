@@ -1,9 +1,10 @@
 name: Source and host regressions
-on: [push, pull_request]
+on: [push, pull_request, workflow_dispatch]
 permissions:
   contents: read
 jobs:
   windows:
+    timeout-minutes: 30
     runs-on: windows-2022
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
@@ -13,6 +14,7 @@ jobs:
       - run: cmake --build out/ci --config Release --parallel 2
       - run: ctest --test-dir out/ci -C Release --output-on-failure
   linux:
+    timeout-minutes: 30
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
