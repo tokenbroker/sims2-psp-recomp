@@ -165,3 +165,9 @@ runs GPU-independent checks, since a Vulkan driver is not guaranteed on hosted
 Windows runners. Local Windows Vulkan renderer tests supplement this coverage.
 Linux runs the full suite on X11 and an additional Weston/Wayland shell check.
 These checks require no disc or generated game corpus.
+
+
+CI runs on branch pushes, pull requests and manual dispatch. Publishing a tag
+for an already-tested commit does not start a duplicate five-job matrix. A newer
+push to the same ref cancels its obsolete run; different branches and pull
+requests keep independent checks. Runtime tests and privacy checks are unchanged.
