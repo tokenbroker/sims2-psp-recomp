@@ -1,0 +1,80 @@
+{
+  "source_base": "bd1d1f6",
+  "adapter": "AMD Radeon RX 6950 XT",
+  "settings": {
+    "render_scale": 4,
+    "width": 1920,
+    "height": 1080,
+    "engine_fps": 0,
+    "vsync": false,
+    "fps_cap": 0
+  },
+  "method": "Each process used a fresh isolated memstick. Hidden, unpaced startup; final 300 of 900 requests. No compilation overlapped these menu measurements. Hidden swapchain unavailability adds a delay to presentation; work_us excludes that presentation and is not visible FPS.",
+  "cases": [
+    {
+      "case": "before",
+      "exit": 3,
+      "wall_seconds": 51.656999999890104,
+      "runtime_sha256": "ef958a4e903bf791116596d57eb9b769e56c3a3abf3e5b4dce4e5fa1070144e4",
+      "samples": 300,
+      "mean_work_ms": 36.049279999999996,
+      "p95_work_ms": 40.711,
+      "max_work_ms": 51.453,
+      "scope": "Hidden unpaced 4x menu, final 300 requests; not monitor FPS",
+      "renderer_draw_mean_ms": 30.915666666666667,
+      "renderer_flush_mean_ms": 6.437426666666666,
+      "present_mean_ms": 23.51933,
+      "capture_sha256": "d0370b0db4f3bed1b8b4aac91674633641739f894a4e348c7bb986979e0e399a",
+      "draws_per_request": [
+        86
+      ]
+    },
+    {
+      "case": "arena",
+      "exit": 3,
+      "wall_seconds": 23.608999999938533,
+      "runtime_sha256": "af88a91666c1722bebddb242559a4a71a59e468a2fde8d67a5e8f641a0fc9d5b",
+      "samples": 300,
+      "mean_work_ms": 5.835343333333333,
+      "p95_work_ms": 7.07,
+      "max_work_ms": 8.573,
+      "scope": "Hidden unpaced 4x menu, final 300 requests; not monitor FPS",
+      "renderer_draw_mean_ms": 0.96856,
+      "renderer_flush_mean_ms": 4.97636,
+      "present_mean_ms": 22.436086666666665,
+      "capture_sha256": "d0370b0db4f3bed1b8b4aac91674633641739f894a4e348c7bb986979e0e399a",
+      "draws_per_request": [
+        86
+      ]
+    },
+    {
+      "case": "after",
+      "exit": 3,
+      "wall_seconds": 20.780999999959022,
+      "runtime_sha256": "7d9b96b52c80d90ca3385d67a386746ac70caf42cbd3b027f3a75f525fea737f",
+      "samples": 300,
+      "mean_work_ms": 5.650263333333333,
+      "p95_work_ms": 6.764,
+      "max_work_ms": 8.202,
+      "scope": "Hidden unpaced 4x menu, final 300 requests; not monitor FPS",
+      "renderer_draw_mean_ms": 0.9777466666666667,
+      "renderer_flush_mean_ms": 2.0325066666666665,
+      "present_mean_ms": 18.21927,
+      "capture_sha256": "d0370b0db4f3bed1b8b4aac91674633641739f894a4e348c7bb986979e0e399a",
+      "draws_per_request": [
+        86
+      ]
+    }
+  ],
+  "pixel_equivalence": true,
+  "gameplay_check": {
+    "engine_fps": 120,
+    "render_scale": 4,
+    "frame_requests": 2400,
+    "draws": 185655,
+    "guest_us": 35125000,
+    "exit": 3,
+    "concurrent_linux_build": true,
+    "used_for_performance_claim": false
+  }
+}

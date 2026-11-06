@@ -3,6 +3,7 @@
 #include "display/native_window.hpp"
 #include "display/presentation_limiter.hpp"
 #include "display/settings_menu.hpp"
+#include "display/framebuffer_pixels.hpp"
 #include "gpu/native_renderer.hpp"
 #include "psprecomp/common.hpp"
 #include <SDL3/SDL.h>
@@ -416,32 +417,9 @@ bool NativeWindow::present(const psprecomp::GuestMemory &memory, const Display::
                               host_us);
     controller.set_pad(pad, now_us);
     const auto bpp = frame.pixel_format == 3 ? 4u : 2u;
-    for (unsigned y = 0; y < 272; ++y)
-        for (unsigned x = 0; x < 480; ++x) {
-            auto address = frame.address + (y * frame.buffer_width + x) * bpp;
-            if (!memory.contains(address, bpp))
-                continue;
-            auto raw = bpp == 4 ? memory.load32(address) : memory.load16(address);
-            unsigned r{}, g{}, b{};
-            if (frame.pixel_format == 3) {
-                r = raw & 255;
-                g = (raw >> 8) & 255;
-                b = (raw >> 16) & 255;
-            } else if (frame.pixel_format == 0) {
-                r = (raw & 31) * 255 / 31;
-                g = ((raw >> 5) & 63) * 255 / 63;
-                b = ((raw >> 11) & 31) * 255 / 31;
-            } else if (frame.pixel_format == 1) {
-                r = (raw & 31) * 255 / 31;
-                g = ((raw >> 5) & 31) * 255 / 31;
-                b = ((raw >> 10) & 31) * 255 / 31;
-            } else {
-                r = (raw & 15) * 17;
-                g = ((raw >> 4) & 15) * 17;
-                b = ((raw >> 8) & 15) * 17;
-            }
-            p.pixels[y * 480 + x] = (r << 16) | (g << 8) | b;
-        }
+    const auto bytes=std::size_t(frame.buffer_width)*272u*bpp;
+    const auto *source=memory.raw_pointer(frame.address,bytes);
+    if(source)convert_framebuffer_pixels({source,bytes},frame.buffer_width,480,272,frame.pixel_format,p.pixels);
     ++p.frames;
     const auto *at = std::getenv("SIMS2_CAPTURE_FRAME");
     if (p.frames == (at ? std::strtoull(at, nullptr, 10) : 60))

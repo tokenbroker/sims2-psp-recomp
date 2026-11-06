@@ -1,5 +1,6 @@
 #include "gpu/native_renderer.hpp"
 #include "ge/ge.hpp"
+#include <algorithm>
 #include <iostream>
 #if !defined(SIMS2_VULKAN)
 #include <d3d11.h>
@@ -123,6 +124,35 @@ int main(int argc,char **argv) {
         for (unsigned y = 0; y < 64; ++y) for (unsigned x = 0; x < 256; ++x)
             require(memory.load32(rows.target.color_address + (y * 512u + x) * 4u) == (0xFF000000u | (y + 1u)),
                     "Streaming vertex upload overwrote an earlier draw");
+#if defined(SIMS2_VULKAN)
+        if(scale==1){
+            // More than 32 MiB of texture uploads in one render sequence forces
+            // staging rollover. Each earlier draw must retain its own texture
+            // data after the same guest texture address is overwritten.
+            NativeRenderer arena(true);
+            DrawCall textured{};textured.through=true;textured.primitive=PrimitiveType::Sprites;
+            textured.target=rows.target;textured.viewport=rows.viewport;
+            textured.texture.enabled=true;textured.texture.address=0x09000000u;
+            textured.texture.width=textured.texture.height=textured.texture.buffer_width=512;
+            textured.texture.format=TextureFormat::Rgba8888;textured.texture.function=3;
+            textured.texture.alpha_from_texture=true;
+            textured.vertices.resize(2);
+            textured.vertices[0].texcoord={0,0};textured.vertices[1].texcoord={1,1};
+            std::vector<std::uint32_t> pixels(512u*512u);
+            for(unsigned y=0;y<40;++y){
+                const auto color=0xff000000u|(y+1u);
+                std::fill(pixels.begin(),pixels.end(),color);
+                memory.copy_in(textured.texture.address,{reinterpret_cast<const std::uint8_t*>(pixels.data()),pixels.size()*4u});
+                textured.vertices[0].position={300.f,float(y),0,1};
+                textured.vertices[1].position={301.f,float(y+1),0,1};
+                arena.draw(memory,textured);
+            }
+            arena.flush(memory);
+            for(unsigned y=0;y<40;++y)
+                require(memory.load32(textured.target.color_address+(y*512u+300u)*4u)==(0xff000000u|(y+1u)),
+                        "Upload arena rollover corrupted an earlier texture");
+        }
+#endif
         if(scale>1){
             psprecomp::GuestMemory clean;
             NativeRenderer quality(true);quality.set_render_scale(scale);

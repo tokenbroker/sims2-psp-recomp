@@ -161,12 +161,18 @@ struct NativeRenderer::Impl {
     std::vector<std::uint32_t> converted_generation;
     std::vector<std::uint16_t> triangle_vertices;
     std::uint32_t conversion_generation{};
-    std::vector<SDL_GPUTransferBuffer *> pending_uploads;
+    // One staging arena per in-flight backing allocation. SDL cycles the arena
+    // only at a submission boundary; draws within a command buffer use disjoint
+    // offsets. Per-draw transfer-buffer allocation causes driver churn on Windows.
+    SDL_GPUTransferBuffer *uploads{};
+    unsigned upload_cursor{}, upload_capacity=32u*1024u*1024u;
+    struct Upload { SDL_GPUTransferBuffer *buffer; unsigned offset; };
     struct Target {
         RenderTarget guest;
         bool dirty{}, upload{true};
         std::vector<std::uint8_t> snapshot;
         SDL_GPUTexture *color{}, *depth{}, *native{};
+        SDL_GPUTransferBuffer *readback{};
     };
     std::map<std::tuple<std::uint32_t, std::uint32_t, std::uint32_t>, Target> targets;
     std::map<std::uint64_t, SDL_GPUTexture *> textures;
@@ -187,9 +193,7 @@ struct NativeRenderer::Impl {
             require(SDL_SubmitGPUCommandBuffer(commands), "Submit Vulkan commands");
             commands = nullptr;
         }
-        for (auto *p : pending_uploads)
-            SDL_ReleaseGPUTransferBuffer(device, p);
-        pending_uploads.clear();
+        upload_cursor = 0;
         vertex_cursor = 0;
     }
     SDL_GPUTexture *texture(unsigned w, unsigned h, SDL_GPUTextureUsageFlags usage,
@@ -207,24 +211,31 @@ struct NativeRenderer::Impl {
         require(t, "Create Vulkan texture");
         return t;
     }
-    SDL_GPUTransferBuffer *upload(const void *data, unsigned bytes) {
-        SDL_GPUTransferBufferCreateInfo info{};
-        info.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD;
-        info.size = bytes;
-        auto *t = SDL_CreateGPUTransferBuffer(device, &info);
-        require(t, "Create Vulkan upload");
-        pending_uploads.push_back(t);
-        auto *mapped = SDL_MapGPUTransferBuffer(device, t, false);
+    Upload upload(const void *data, unsigned bytes) {
+        const unsigned reserved=(bytes+255u)&~255u;
+        if(reserved>upload_capacity)throw psprecomp::Error("Vulkan upload exceeds staging arena");
+        if(upload_cursor+reserved>upload_capacity)submit();
+        if(!uploads) {
+            SDL_GPUTransferBufferCreateInfo info{};
+            info.usage=SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD;
+            info.size=upload_capacity;
+            uploads=SDL_CreateGPUTransferBuffer(device,&info);
+            require(uploads,"Create Vulkan upload arena");
+        }
+        const auto offset=upload_cursor;
+        auto *mapped = SDL_MapGPUTransferBuffer(device, uploads, offset==0);
         require(mapped, "Map Vulkan upload");
-        std::memcpy(mapped, data, bytes);
-        SDL_UnmapGPUTransferBuffer(device, t);
-        return t;
+        std::memcpy(static_cast<std::uint8_t*>(mapped)+offset, data, bytes);
+        SDL_UnmapGPUTransferBuffer(device, uploads);
+        upload_cursor+=reserved;
+        return {uploads,offset};
     }
     void upload_texture(SDL_GPUTexture *t, const std::uint32_t *data, unsigned w, unsigned h) {
-        auto *transfer = upload(data, w * h * 4);
+        const auto transfer = upload(data, w * h * 4);
         auto *copy = SDL_BeginGPUCopyPass(cmd());
         SDL_GPUTextureTransferInfo src{};
-        src.transfer_buffer = transfer;
+        src.transfer_buffer = transfer.buffer;
+        src.offset = transfer.offset;
         src.pixels_per_row = w;
         src.rows_per_layer = h;
         SDL_GPUTextureRegion dst{};
@@ -302,6 +313,7 @@ struct NativeRenderer::Impl {
             SDL_ReleaseGPUTexture(device, t.color);
             SDL_ReleaseGPUTexture(device, t.depth);
             SDL_ReleaseGPUTexture(device, t.native);
+            if(t.readback)SDL_ReleaseGPUTransferBuffer(device,t.readback);
         }
         targets.clear();
     }
@@ -326,6 +338,8 @@ struct NativeRenderer::Impl {
             SDL_ReleaseGPUTexture(device, white);
         if (vertices)
             SDL_ReleaseGPUBuffer(device, vertices);
+        if(uploads)
+            SDL_ReleaseGPUTransferBuffer(device,uploads);
         if (vs)
             SDL_ReleaseGPUShader(device, vs);
         if (ps)
@@ -456,7 +470,8 @@ void NativeRenderer::flush(psprecomp::GuestMemory &memory, const BlockTransfer *
         SDL_GPUTransferBufferCreateInfo info{};
         info.usage = SDL_GPU_TRANSFERBUFFERUSAGE_DOWNLOAD;
         info.size = width * height * 4;
-        auto *download = SDL_CreateGPUTransferBuffer(r.device, &info);
+        if(!t.readback)t.readback=SDL_CreateGPUTransferBuffer(r.device,&info);
+        auto *download = t.readback;
         require(download, "Create Vulkan readback");
         auto *pass = SDL_BeginGPUCopyPass(r.cmd());
         SDL_GPUTextureRegion src{};
@@ -479,7 +494,14 @@ void NativeRenderer::flush(psprecomp::GuestMemory &memory, const BlockTransfer *
             static_cast<const std::uint32_t *>(SDL_MapGPUTransferBuffer(r.device, download, false));
         require(pixels, "Map Vulkan readback");
         const auto &g = t.guest;
+        auto *destination=memory.raw_pointer(g.color_address,std::size_t(g.color_stride)*height*(g.color_format==3?4u:2u));
         for (unsigned y = 0; y < height; ++y)
+        {
+            if(g.color_format==3 && destination) {
+                std::memcpy(destination+std::size_t(y)*g.color_stride*4u,pixels+y*width,
+                            std::min(width,g.color_stride)*4u);
+                continue;
+            }
             for (unsigned x = 0; x < std::min(width, g.color_stride); ++x) {
                 auto at = g.color_address + (y * g.color_stride + x) * (g.color_format == 3 ? 4 : 2);
                 if (g.color_format == 3)
@@ -487,8 +509,8 @@ void NativeRenderer::flush(psprecomp::GuestMemory &memory, const BlockTransfer *
                 else
                     memory.store16(at, pack(pixels[y * width + x], g.color_format));
             }
+        }
         SDL_UnmapGPUTransferBuffer(r.device, download);
-        SDL_ReleaseGPUTransferBuffer(r.device, download);
         ++r.flush_count;
         t.dirty = false;
         t.upload = true;
@@ -812,9 +834,9 @@ void NativeRenderer::draw(psprecomp::GuestMemory &memory, const DrawCall &call) 
         throw psprecomp::Error("Vulkan GE draw exceeds vertex buffer");
     if (r.vertex_cursor + bytes > r.vertex_capacity)
         r.submit();
-    auto *transfer = r.upload(output.data(), bytes);
+    const auto transfer = r.upload(output.data(), bytes);
     auto *copy = SDL_BeginGPUCopyPass(r.cmd());
-    SDL_GPUTransferBufferLocation src{transfer, 0};
+    SDL_GPUTransferBufferLocation src{transfer.buffer, transfer.offset};
     SDL_GPUBufferRegion dst{r.vertices, r.vertex_cursor, bytes};
     SDL_UploadToGPUBuffer(copy, &src, &dst, r.vertex_cursor == 0);
     SDL_EndGPUCopyPass(copy);

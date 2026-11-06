@@ -35,6 +35,11 @@ explicit error; the launcher does not silently select a different renderer.
   not a passing gameplay check. High-rate Vulkan performance/teardown remains
   experimental. Begin with native engine timing when testing this renderer.
 
+The subsequent [Vulkan performance fix](VULKAN_PERFORMANCE.md) removes per-draw
+upload allocations and excessive pixel-copy overhead. The 4x/120 Hz saved-game
+scenario now completes and exits cleanly. This supersedes the timeout as a
+current result; physical-window performance still needs user feedback.
+
 These hidden checks do not establish physical monitor FPS, audible playback
 quality, a full playthrough or sustained high-FPS Vulkan performance. Test saves,
 game-derived code, binaries and captures remain private local outputs. The local
