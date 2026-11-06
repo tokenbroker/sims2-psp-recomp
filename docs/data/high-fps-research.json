@@ -1,0 +1,138 @@
+{
+  "source_revision": "2879fef",
+  "scope": "Private fixed-clock research; no production unlock; guest cadence is not visible monitor FPS",
+  "fresh_boot": [
+    {
+      "mode": "native",
+      "active_display_hz": 59.94005994005994,
+      "frame_requests": 900,
+      "guest_us": 27510816,
+      "gpu_draws": 40684,
+      "steady_requests_per_guest_second": 59.94005994005994,
+      "steady_delta_us": [
+        16683,
+        16684
+      ],
+      "movie_frames": 429,
+      "runtime_sha256": "88d29295e59715b3a8190b6448bf2fa8fd1a569f60632c6048a978a9e10c4eaa"
+    },
+    {
+      "mode": "consistent virtual display clock",
+      "active_display_hz": 120,
+      "frame_requests": 900,
+      "guest_us": 20891666,
+      "gpu_draws": 40427,
+      "steady_requests_per_guest_second": 120.0,
+      "steady_delta_us": [
+        8333,
+        8334
+      ],
+      "movie_frames": 429,
+      "runtime_sha256": "d4793e36b1391aa1e034ee3e79dd26c75078057007fd37de02cb6e37aaa0050c"
+    },
+    {
+      "mode": "consistent virtual display clock",
+      "active_display_hz": 240,
+      "frame_requests": 900,
+      "guest_us": 18233333,
+      "gpu_draws": 50753,
+      "steady_requests_per_guest_second": 240.0,
+      "steady_delta_us": [
+        4166,
+        4167
+      ],
+      "movie_frames": 429,
+      "runtime_sha256": "c8e36ed76abbe1fa1e14ba00396d7c32e6e4e9aa734dc794cd68a89aff200aa5"
+    }
+  ],
+  "gameplay": [
+    {
+      "case": "native",
+      "clock_at_40_guest_seconds_minutes_since_midnight": 1187,
+      "clock_at_45_guest_seconds_minutes_since_midnight": 1192,
+      "game_minutes_advanced_in_five_guest_seconds": 5,
+      "capture_frame_csv_last_rows": {
+        "40": {
+          "frame": "1441",
+          "guest_us": "40006633",
+          "guest_delta_us": "16683",
+          "work_us": "11117",
+          "renderer_draw_us": "2906",
+          "renderer_flush_us": "393",
+          "present_us": "493",
+          "draws": "153"
+        },
+        "45": {
+          "frame": "1741",
+          "guest_us": "45011633",
+          "guest_delta_us": "16683",
+          "work_us": "18048",
+          "renderer_draw_us": "2712",
+          "renderer_flush_us": "546",
+          "present_us": "681",
+          "draws": "146"
+        }
+      }
+    },
+    {
+      "case": "display-120",
+      "clock_at_40_guest_seconds_minutes_since_midnight": 1196,
+      "clock_at_45_guest_seconds_minutes_since_midnight": 1206,
+      "game_minutes_advanced_in_five_guest_seconds": 10,
+      "capture_frame_csv_last_rows": {
+        "40": {
+          "frame": "2985",
+          "guest_us": "40000000",
+          "guest_delta_us": "8334",
+          "work_us": "12830",
+          "renderer_draw_us": "3054",
+          "renderer_flush_us": "314",
+          "present_us": "674",
+          "draws": "153"
+        },
+        "45": {
+          "frame": "3585",
+          "guest_us": "45000000",
+          "guest_delta_us": "8334",
+          "work_us": "26232",
+          "renderer_draw_us": "4157",
+          "renderer_flush_us": "421",
+          "present_us": "534",
+          "draws": "257"
+        }
+      }
+    },
+    {
+      "case": "display-240",
+      "clock_at_40_guest_seconds_minutes_since_midnight": 1216,
+      "clock_at_45_guest_seconds_minutes_since_midnight": 1236,
+      "game_minutes_advanced_in_five_guest_seconds": 20,
+      "capture_frame_csv_last_rows": {
+        "40": {
+          "frame": "5916",
+          "guest_us": "40000000",
+          "guest_delta_us": "4167",
+          "work_us": "9613",
+          "renderer_draw_us": "2469",
+          "renderer_flush_us": "383",
+          "present_us": "465",
+          "draws": "153"
+        },
+        "45": {
+          "frame": "7116",
+          "guest_us": "45000000",
+          "guest_delta_us": "4167",
+          "work_us": "23083",
+          "renderer_draw_us": "4046",
+          "renderer_flush_us": "364",
+          "present_us": "434",
+          "draws": "281"
+        }
+      }
+    }
+  ],
+  "input_script": "0:-;30:CROSS;30.1:-;42:STICKUP;44:-",
+  "audio_validation": "not performed; muted diagnostic runs",
+  "save_isolation": "independent copies of identical saved game",
+  "production_timing": "restored native"
+}

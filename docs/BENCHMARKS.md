@@ -70,6 +70,10 @@ their wall-time FPS is deliberately not published as a hardware benchmark.
 
 ## Windows hardware baseline
 
+Subsequent consistent-clock experiments reached higher render cadence but
+accelerated gameplay. See [high-FPS research](HIGH_FPS_RESEARCH.md) for the
+matched-time captures and the distinction from the single-wait experiment above.
+
 The first recorded baseline used an RX 6950 XT (selected by D3D11), Ryzen 7
 9800X3D and AMD driver 32.0.21045.16010. Each fresh run requested 1920x1080,
 VSync off, a hidden window, 900 total requests and 600 warmup requests. No other
