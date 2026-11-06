@@ -11,7 +11,7 @@ namespace sims2::ctrl {
 struct NativeGamepad::Impl {
     InputConfig config;
     unsigned deadzone{18};
-    bool right_stick_camera{};
+    bool right_stick_camera{}, settings_chord{}, previous_settings_chord{};
     std::map<SDL_JoystickID, SDL_Gamepad *> pads;
     ~Impl() {
         for (auto &[id, pad] : pads)
@@ -83,6 +83,10 @@ Controller::Pad NativeGamepad::sample(bool focused) {
             }
         }
     SDL_free(ids);
+    impl_->settings_chord = false;
+    for (auto &[id, pad] : impl_->pads)
+        impl_->settings_chord |= SDL_GetGamepadButton(pad, SDL_GAMEPAD_BUTTON_LEFT_STICK) &&
+                                 SDL_GetGamepadButton(pad, SDL_GAMEPAD_BUTTON_RIGHT_STICK);
     Controller::Pad result;
     if (!focused)
         return result;
@@ -113,5 +117,10 @@ Controller::Pad NativeGamepad::sample(bool focused) {
         }
     }
     return result;
+}
+bool NativeGamepad::settings_toggle(bool focused) {
+    const bool pressed = impl_->settings_chord && !impl_->previous_settings_chord;
+    impl_->previous_settings_chord = impl_->settings_chord;
+    return focused && pressed;
 }
 } // namespace sims2::ctrl

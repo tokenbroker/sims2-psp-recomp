@@ -33,7 +33,7 @@ struct NativeWindow::Impl : SettingsMenu {
     HostSettings current;
     std::filesystem::path settings_file = host_settings_path();
     std::function<void(float)> audio_control;
-    bool video{}, claimed{}, platform{}, graphics{}, closed{}, paced{}, reset_pacing = true, chord{},
+    bool video{}, claimed{}, platform{}, graphics{}, closed{}, paced{}, reset_pacing = true,
                                                                         suppress{};
     bool vsync = true;
     std::uint64_t frames{}, presentations{}, first_us{};
@@ -102,19 +102,9 @@ struct NativeWindow::Impl : SettingsMenu {
                 reset_pacing = true;
             }
         }
-        bool held = false;
-        int n{};
-        auto *ids = SDL_GetGamepads(&n);
-        for (int i = 0; i < n; ++i) {
-            auto *pad = SDL_GetGamepadFromID(ids[i]);
-            if (pad)
-                held |= SDL_GetGamepadButton(pad, SDL_GAMEPAD_BUTTON_LEFT_STICK) &&
-                        SDL_GetGamepadButton(pad, SDL_GAMEPAD_BUTTON_RIGHT_STICK);
-        }
-        SDL_free(ids);
-        if (held && !chord && focused())
+        gamepad->sample(false);
+        if (gamepad->settings_toggle(focused() && !slot_open))
             toggle();
-        chord = held;
     }
     void camera() {
         int w = 0, h = 0;

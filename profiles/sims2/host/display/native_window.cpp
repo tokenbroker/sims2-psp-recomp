@@ -68,6 +68,7 @@ struct NativeWindow::Impl {
             GetForegroundWindow() != dialog) return;
         try {
             const auto buttons = self->gamepad->sample(true).buttons;
+            self->gamepad->settings_toggle(false);
             if (!self->dialog_released) {
                 self->dialog_released = buttons == 0;
                 self->dialog_buttons = buttons;
@@ -243,9 +244,16 @@ bool NativeWindow::present(const psprecomp::GuestMemory &memory, const Display::
     MSG message{};
     while (PeekMessageW(&message, nullptr, 0, 0, PM_REMOVE)) { TranslateMessage(&message); DispatchMessageW(&message); }
     if (p.closed) return false;
-    const bool settings_open=p.overlay && p.overlay->open();
+    bool settings_open=p.overlay && p.overlay->open();
     ctrl::Controller::Pad pad;
     if (p.gamepad) pad = p.gamepad->sample(!settings_open && p.window && GetForegroundWindow() == p.window);
+    if (p.gamepad && p.gamepad->settings_toggle(p.window && GetForegroundWindow() == p.window) && p.overlay) {
+        p.overlay->toggle(p.settings);
+        settings_open = p.overlay->open();
+        p.host_input.release();
+        p.suppress_keyboard();
+        p.reset_pacing = true;
+    }
     p.dialog_consumed &= pad.buttons;
     pad.buttons &= ~p.dialog_consumed;
     auto key=[&](unsigned code){
@@ -301,7 +309,11 @@ bool NativeWindow::present(const psprecomp::GuestMemory &memory, const Display::
             const auto began=std::chrono::steady_clock::now();
             while(PeekMessageW(&message,nullptr,0,0,PM_REMOVE)){TranslateMessage(&message);DispatchMessageW(&message);}
             if(p.closed)break;
-            if(p.gamepad)p.gamepad->sample(false);
+            if(p.gamepad) {
+                p.gamepad->sample(false);
+                if(p.gamepad->settings_toggle(p.window && GetForegroundWindow() == p.window))
+                    p.overlay->toggle(p.settings);
+            }
             controller.set_pad(ctrl::Controller::Pad{},now_us);
             render(false);
             std::this_thread::sleep_until(began+std::chrono::microseconds(16667));

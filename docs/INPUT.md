@@ -32,7 +32,8 @@ movement bindings and camera controls. Controller labels can use Xbox/Steam Deck
 PlayStation, Nintendo or physical-position names. This host overlay does not replace the
 PSP artwork or original button glyphs inside game menus.
 
-On SDL/Vulkan, L3+R3 opens/closes settings. Steam Input may bind F1 too. The active
+On Windows Direct3D and SDL/Vulkan, L3+R3 opens/closes settings. Both sticks must
+be pressed on the same controller; release before pressing again. Steam Input may bind F1 too. The active
 window owns SDL events; gamepad polling preserves them. Focus loss and settings /
 save dialogs neutralize game input and require held controls to be released
 before re-arming. Mouse-wheel input from those dialogs does not leak into gameplay.
@@ -41,3 +42,7 @@ Automated coverage uses synthetic key/mouse snapshots and SDL virtual gamepads:
 custom mappings, deadzone, inversion, mouse pulse expiry, wheel expiry, repeat
 intervals, focus gating, settings roundtrip, hot-plug/disconnect and event retention.
 Physical device and Steam Input layout checks remain part of the hardware matrix.
+
+The settings shortcut is focus-gated and is suppressed during the save selector.
+Holding it does not repeat, and returning focus while holding it does not open
+the panel. The shortcut is independent of gameplay button rebinding.
