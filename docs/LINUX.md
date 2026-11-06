@@ -114,3 +114,21 @@ and Xvfb. Those results verify rendering and the shell, not handheld performance
 Reference architecture: the [Bustin' Out port](https://github.com/abilliontokens/bustinout-recomp)
 and its XboxXBERecomp SDL/Vulkan runtime. Its Xbox GPU implementation is not used
 for the PSP GE renderer. SDL GPU documentation: [GPU API](https://wiki.libsdl.org/SDL3/CategoryGPU).
+
+
+## Wayland regression check
+
+Hosted Linux CI runs the synthetic suite under X11/Xvfb, then runs the SDL/Vulkan
+shell test under an isolated Weston headless Wayland compositor. The test checks
+that SDL really selected Wayland, presents frames and the F1/F2 overlays, cancels
+the save dialog, preserves events during gamepad polling and handles window close.
+No ISO or save is needed. To run after building host tests:
+
+```sh
+sudo apt-get install weston
+python3 profiles/sims2/tests/run_wayland_tests.py out/host-tests
+```
+
+The helper creates its own socket, runtime directory and settings file and stops
+only its own compositor. This uses software/headless display infrastructure;
+physical GPU drivers, Gamescope and Steam Deck suspend/resume still need testing.

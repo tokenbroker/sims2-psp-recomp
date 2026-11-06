@@ -3,6 +3,8 @@
 #include "ctrl/native_gamepad.hpp"
 #include <SDL3/SDL.h>
 #include <chrono>
+#include <cstdlib>
+#include <string_view>
 #include <iostream>
 #include <stdexcept>
 namespace {
@@ -40,6 +42,11 @@ int main() {
             polling.sample(false);SDL_Event kept{};
             require(SDL_PeepEvents(&kept,1,SDL_GETEVENT,event_type,event_type)==1,"Gamepad polling swallowed an SDL window event");
         }
+        const auto *driver = SDL_GetCurrentVideoDriver();
+        require(driver != nullptr, "SDL did not select a video driver");
+        if (const auto *requested = std::getenv("SDL_VIDEO_DRIVER"))
+            require(std::string_view(driver) == requested, "SDL used an unexpected video driver");
+        std::cout << "SDL video driver: " << driver << '\n';
         window_id = SDL_GetWindowID(static_cast<SDL_Window *>(window.native_handle()));
         sims2::display::Display::Framebuffer frame{0x04000000u, 512u, 3u};
         sims2::ctrl::Controller controller;
@@ -64,7 +71,12 @@ int main() {
         require(window.presented_frames() > 3, "F1 did not render");
         SDL_AddTimer(250, close_dialog, nullptr);
         require(!window.select_savedata(2, {"TEST_SLOT"}), "Save selector cancellation failed");
-        std::cout << "Vulkan SDL shell: swapchain, 1280x800, 2x, F1 pause/resume, save cancellation passed\n";
+        SDL_Event close{};
+        close.type = SDL_EVENT_WINDOW_CLOSE_REQUESTED;
+        close.window.windowID = window_id;
+        SDL_PushEvent(&close);
+        require(!window.present(memory, frame, 66668, controller), "Window close request was lost");
+        std::cout << "Vulkan SDL shell: swapchain, 1280x800, 2x, F1/F2, input event ownership, save cancellation, close passed\n";
         return 0;
     } catch (const std::exception &e) {
         std::cerr << e.what() << '\n';
