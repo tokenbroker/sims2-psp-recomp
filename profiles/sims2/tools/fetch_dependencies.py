@@ -84,11 +84,36 @@ def ensure_dependencies(verify_only=False):
         list(pool.map(fetch, ffmpeg["files"]))
     print(f"Dependencies verified: {sdl_files} SDL files, {len(ffmpeg['files'])} FFmpeg files", flush=True)
 
+def ensure_shader_tools(verify_only=False):
+    """Optional Windows shader compiler, authenticated by the release archive hash."""
+    spec = json.loads((PROFILE / "config/dependencies.json").read_text())["glslang"]
+    archive = ROOT / "out/dependencies" / f"glslang-{spec['version']}-windows-x86_64-release.zip"
+    if verify_only:
+        if not archive.is_file() or digest(archive) != spec["sha256"]:
+            raise RuntimeError("Shader compiler archive missing or changed")
+    else:
+        download(spec["url"], archive, spec["sha256"])
+    with zipfile.ZipFile(archive) as source:
+        data = source.read("bin/glslang.exe")
+    target = ROOT / "out/dependencies/glslang/bin/glslang.exe"
+    matches = target.is_file() and hashlib.sha256(target.read_bytes()).digest() == hashlib.sha256(data).digest()
+    if verify_only and not matches:
+        raise RuntimeError("Shader compiler missing or changed")
+    if not verify_only and not matches:
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(data)
+    print(f"Shader compiler verified: glslang {spec['version']}", flush=True)
+    return target
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--verify-only", action="store_true", help="Check existing inputs without downloading")
+    parser.add_argument("--shader-tools", action="store_true", help="Also fetch the pinned Windows Vulkan shader compiler")
     args = parser.parse_args()
     try:
         ensure_dependencies(args.verify_only)
+        if args.shader_tools:
+            ensure_shader_tools(args.verify_only)
     except (OSError, ValueError, RuntimeError) as error:
         raise SystemExit(f"Dependency setup failed: {error}")

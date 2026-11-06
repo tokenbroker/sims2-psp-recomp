@@ -4,15 +4,27 @@ permissions:
   contents: read
 jobs:
   windows:
+    name: Windows ${{ matrix.backend }}
+    strategy:
+      fail-fast: false
+      matrix:
+        backend: [D3D11, VULKAN]
     timeout-minutes: 30
     runs-on: windows-2022
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
       - run: python tools/check_public_tree.py
       - run: python profiles/sims2/tools/fetch_dependencies.py
-      - run: cmake -S . -B out/ci -G "Visual Studio 17 2022" -A x64 -DPSPRECOMP_PROFILE=sims2 -DSIMS2_HOST_TESTS_ONLY=ON
+      - if: matrix.backend == 'VULKAN'
+        run: python profiles/sims2/tools/fetch_dependencies.py --shader-tools
+      - run: cmake -S . -B out/ci -G "Visual Studio 17 2022" -A x64 -DPSPRECOMP_PROFILE=sims2 -DSIMS2_HOST_TESTS_ONLY=ON -DSIMS2_GRAPHICS_BACKEND=${{ matrix.backend }}
       - run: cmake --build out/ci --config Release --parallel 2
-      - run: ctest --test-dir out/ci -C Release --output-on-failure
+      - if: matrix.backend == 'D3D11'
+        run: ctest --test-dir out/ci -C Release --output-on-failure
+      # Hosted Windows runners do not guarantee a Vulkan-capable driver.
+      # Compile the complete backend; run its GPU-independent regressions here.
+      - if: matrix.backend == 'VULKAN'
+        run: ctest --test-dir out/ci -C Release --output-on-failure -E "sims2_vulkan_renderer|sims2_sdl_window"
   linux:
     timeout-minutes: 30
     runs-on: ubuntu-24.04

@@ -120,7 +120,9 @@ Only distribute a reviewed source-installer archive. Never distribute a prepared
 
 ## Optional Windows Vulkan build
 
-Install the Vulkan SDK (providing `glslangValidator` on PATH), then use
+Run `python profiles/sims2/tools/fetch_dependencies.py --shader-tools` to fetch
+and verify the pinned Khronos glslang compiler, or install the Vulkan SDK
+(providing `glslangValidator` on PATH). Then use
 `build.py "D:\Games\The Sims 2 USA.iso" --graphics VULKAN --workspace out/sims2-windows-vulkan`.
 This builds the SDL/Vulkan shell with the same F1 menu. Use a separate workspace
 from the D3D11 build. Windows defaults to D3D11; switching backends currently
@@ -155,3 +157,11 @@ On Linux install the listed dependencies and run display tests under Xvfb or a
 headless compositor. The empty registration fixture cannot run a game and is
 never used by ISO setup. `.github/workflows/build.yml` is the active Windows/Linux
 workflow; `docs/ci-example.yml` retains a matching example.
+
+
+Windows CI builds both Direct3D and Vulkan host-only targets. The Direct3D job
+runs its full synthetic suite; the Vulkan job compiles the complete backend and
+runs GPU-independent checks, since a Vulkan driver is not guaranteed on hosted
+Windows runners. Local Windows Vulkan renderer tests supplement this coverage.
+Linux runs the full suite on X11 and an additional Weston/Wayland shell check.
+These checks require no disc or generated game corpus.

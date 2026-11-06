@@ -67,3 +67,18 @@ RecompLauncher, using the same settings file as F1. All choices are checked
 against the native settings reader/writer on both platforms. Linux manifests
 retain the XDG settings location; Windows retains LocalAppData. Release contents
 still require first-time local compilation from a supported USA ISO.
+
+
+## v0.2.2 controller and display coverage
+
+The L3+R3 settings shortcut now uses shared SDL controller sampling on Windows
+Direct3D and SDL/Vulkan. It requires both sticks on one controller, toggles once
+per press, respects focus and is suppressed during save selection. Windows
+controller tests cover holding, re-pressing, focus changes and disconnects.
+
+Local fresh Windows Vulkan host-only validation passed 39 checks, including
+1x/2x/4x/8x renderer checks; the visible SDL shell was excluded from that run.
+Linux shell checks pass on both X11 and isolated Weston Wayland. Windows CI
+now compiles both backends, with Vulkan runtime GPU checks excluded on hosted
+Windows runners that do not guarantee a Vulkan driver. This is not evidence of
+physical Steam Deck, Gamescope or broad vendor-driver compatibility.

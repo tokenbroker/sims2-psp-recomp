@@ -22,12 +22,12 @@ Hardware/compatibility limits: [HARDWARE-VALIDATION.md](docs/HARDWARE-VALIDATION
 
 ## Download
 
-[Latest release: v0.2.1](https://github.com/tokenbroker/sims2-psp-recomp/releases/latest)
+[Latest release: v0.2.2](https://github.com/tokenbroker/sims2-psp-recomp/releases/latest)
 
 | Platform | Download |
 | --- | --- |
-| Windows 10/11 x64 | [Windows setup ZIP](https://github.com/tokenbroker/sims2-psp-recomp/releases/download/v0.2.1/Sims2PSP-win64-setup-0.2.1.zip) |
-| Linux x64, Vulkan / Wayland / X11 | [Linux setup archive](https://github.com/tokenbroker/sims2-psp-recomp/releases/download/v0.2.1/Sims2PSP-linux-x64-setup-0.2.1.tar.gz) |
+| Windows 10/11 x64 | [Windows setup ZIP](https://github.com/tokenbroker/sims2-psp-recomp/releases/download/v0.2.2/Sims2PSP-win64-setup-0.2.2.zip) |
+| Linux x64, Vulkan / Wayland / X11 | [Linux setup archive](https://github.com/tokenbroker/sims2-psp-recomp/releases/download/v0.2.2/Sims2PSP-linux-x64-setup-0.2.2.tar.gz) |
 
 **These are source installers.** Supply your own supported USA ISO; first setup
 compiles the game locally. No prebuilt game runtime or disc data is included.
@@ -67,7 +67,7 @@ redistributed.
 
 ## Display and graphics
 
-Press **F1** for settings. The game pauses while the panel is open. Apply changes
+Press **F1**, or click both controller sticks (**L3+R3**), for settings. The game pauses while the panel is open. Apply changes
 for the session, or Save to persist them. **F2** toggles the performance overlay.
 
 - Windowed, borderless and exclusive fullscreen; desktop, preset or custom sizes.

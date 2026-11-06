@@ -120,7 +120,7 @@ def prepare(iso, assets, output_dir=None, verify_only=False, report_dir=None):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--version", action="version", version="sims2-setup 0.2.1")
+    parser.add_argument("--version", action="version", version="sims2-setup 0.2.2")
     parser.add_argument("iso", type=Path)
     parser.add_argument("--output-dir", type=Path, default=DEFAULT_GAME,
                         help="Directory receiving PSP_GAME and UMD_DATA.BIN")
