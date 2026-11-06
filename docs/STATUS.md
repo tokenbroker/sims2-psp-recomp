@@ -9,7 +9,7 @@ operations have been exercised. Encrypted save/load has been checked across
 fresh processes, including persistent furniture/design changes and a collected
 secret. Playtesting reports smooth gameplay and resolved audio choppiness.
 
-The project has 41 Windows automated checks covering the framework, kernel/HLE,
+The project has 43 Windows automated checks covering the framework, kernel/HLE,
 I/O, save crypto, GE/display/audio, controller sampling, GPU rendering, settings
 persistence, input options, HDR conversion and presentation limits. The GitHub Actions workflow uses synthetic host/framework tests on Windows and Linux and does not receive a game image. Both jobs passed in the [first hosted run](https://github.com/tokenbroker/sims2-psp-recomp/actions/runs/42169377061) at commit `befbf5c`.
 
@@ -27,8 +27,9 @@ reproduction steps and checked with focused regressions.
 - Windows x64 / Direct3D 11 is the established playable build. The new SDL/Vulkan
   backend compiles on Linux; renderer/audio/gamepad tests and the X11/Wayland F1
   shell checks pass. The native Linux game passes a 900-frame startup check with
-  40,684 GPU draws and 429 decoded movie frames. The host-only Linux suite passes 39 checks without an ISO; the Windows suite
-  passes 41, with seven focused Windows Vulkan/input/statistics checks as well.
+  40,684 GPU draws and 429 decoded movie frames. The host-only Linux suite passes 41 checks without an ISO; the Windows Direct3D suite
+  passes 43. Windows Vulkan also has native host and renderer checks; see the release
+  notes for the exact runtime exclusions.
   Physical Steam Deck/Gamescope and Fedora/Arch playtesting remains. See [LINUX.md](LINUX.md).
 - Later quests and some PSP HLE/graphics operations remain unverified or incomplete.
 - Physical controller/hardware combinations need user feedback; virtual SDL device tests pass.
@@ -84,7 +85,7 @@ Windows runners that do not guarantee a Vulkan driver. This is not evidence of
 physical Steam Deck, Gamescope or broad vendor-driver compatibility.
 
 
-### Presentation statistics correction (main)
+## v0.2.3 presentation statistics correction
 
 F1/F2 now share one history that retains intervals over 250 ms; the Windows
 Direct3D path previously discarded these stalls. Paused settings time and
