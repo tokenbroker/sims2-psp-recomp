@@ -123,7 +123,7 @@ def run(command, log, on_line=None):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--version", action="version", version="sims2-source-setup 0.2.0")
+    parser.add_argument("--version", action="version", version="sims2-source-setup 0.2.1")
     parser.add_argument("iso", type=Path)
     parser.add_argument("--workspace", type=Path, default=ROOT / "out/sims2-from-iso")
     parser.add_argument("--jobs", type=int, default=4, help="Parallel build projects (1..16)")

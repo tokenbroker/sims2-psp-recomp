@@ -58,3 +58,12 @@ The recorded RX 6950 XT hidden-window baseline preserved native menu timing at
 1x/4x; it is not a visible gameplay FPS claim. A bounded 120 Hz wait experiment
 did not increase the steady-state menu cadence and is disabled in production.
 See BENCHMARKS.md and HARDWARE-VALIDATION.md for evidence and remaining limits.
+
+
+## v0.2.1 launcher settings
+
+The release manifest now exposes common graphics, audio and input controls in
+RecompLauncher, using the same settings file as F1. All choices are checked
+against the native settings reader/writer on both platforms. Linux manifests
+retain the XDG settings location; Windows retains LocalAppData. Release contents
+still require first-time local compilation from a supported USA ISO.

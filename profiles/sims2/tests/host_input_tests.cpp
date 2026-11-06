@@ -4,7 +4,15 @@
 #include <iostream>
 #include <set>
 #include <stdexcept>
-int main() {
+int main(int argc, char **argv) {
+    if (argc == 4 && std::string_view(argv[1]) == "--normalize-settings") {
+        std::string error;
+        if (!sims2::display::save_host_settings(argv[3], sims2::display::load_host_settings(argv[2]), error)) {
+            std::cerr << error << '\n';
+            return 1;
+        }
+        return 0;
+    }
     try {
         using namespace sims2::ctrl;
         auto require = [](bool ok, const char *message) {

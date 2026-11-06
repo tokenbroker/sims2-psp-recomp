@@ -8,7 +8,7 @@ import tarfile
 import io
 ROOT=Path(__file__).resolve().parents[3]
 def main():
-    p=argparse.ArgumentParser(description=__doc__);p.add_argument("--version",default="0.2.0");p.add_argument("--output",type=Path,default=ROOT/"out/releases");args=p.parse_args()
+    p=argparse.ArgumentParser(description=__doc__);p.add_argument("--version",default="0.2.1");p.add_argument("--output",type=Path,default=ROOT/"out/releases");args=p.parse_args()
     subprocess.run(["python" if __import__("os").name=="nt" else "python3",str(ROOT/"tools/check_public_tree.py")],check=True)
     args.output.mkdir(parents=True,exist_ok=True)
     names=[n for n in subprocess.check_output(["git","ls-files","-z"],cwd=ROOT).decode().split("\0") if n]
@@ -20,6 +20,7 @@ def main():
             info.mode=0o755 if name in {"setup.sh","launch.sh"} else 0o644
             with path.open("rb") as stream:tar.addfile(info,stream)
         manifest=json.loads((ROOT/"profiles/sims2/launcher/recomplauncher.json").read_text())
+        manifest["config"][0]["file"]=[{"path":"{config}/Sims2PSPRecomp/settings.ini"}]
         manifest["repo"]="tokenbroker/sims2-psp-recomp"
         manifest["start"]={"program":["launch.sh"],"args":["{game}"],"env":{"SIMS2_MEMSTICK":"{local}/Sims2PSPRecomp/memstick"}}
         manifest["prepare"]={"program":["setup.sh"],"args":["{game}"],"label":"Compile and verify from your USA disc (C++ tools required)","timeout":7200}

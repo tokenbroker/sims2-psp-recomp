@@ -48,6 +48,7 @@ def stage_install(iso,workspace,build,install,identity):
     run("cmake","--install",build,"--prefix",install,"--component","sims2")
     prepare(iso,False,install/"game",report_dir=workspace/"analysis")
     manifest=json.loads((PROFILE/"launcher/recomplauncher.json").read_text())
+    manifest["config"][0]["file"]=[{"path":"{config}/Sims2PSPRecomp/settings.ini"}]
     manifest.pop("prepare",None)
     manifest["start"]["program"]=["sims2"]
     manifest["start"]["env"]={"SIMS2_WINDOW":"1"}

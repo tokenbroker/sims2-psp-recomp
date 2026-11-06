@@ -22,18 +22,21 @@ Hardware/compatibility limits: [HARDWARE-VALIDATION.md](docs/HARDWARE-VALIDATION
 
 ## Download
 
-[Latest release: v0.2.0](https://github.com/tokenbroker/sims2-psp-recomp/releases/latest)
+[Latest release: v0.2.1](https://github.com/tokenbroker/sims2-psp-recomp/releases/latest)
 
 | Platform | Download |
 | --- | --- |
-| Windows 10/11 x64 | [Windows setup ZIP](https://github.com/tokenbroker/sims2-psp-recomp/releases/download/v0.2.0/Sims2PSP-win64-setup-0.2.0.zip) |
-| Linux x64, Vulkan / Wayland / X11 | [Linux setup archive](https://github.com/tokenbroker/sims2-psp-recomp/releases/download/v0.2.0/Sims2PSP-linux-x64-setup-0.2.0.tar.gz) |
+| Windows 10/11 x64 | [Windows setup ZIP](https://github.com/tokenbroker/sims2-psp-recomp/releases/download/v0.2.1/Sims2PSP-win64-setup-0.2.1.zip) |
+| Linux x64, Vulkan / Wayland / X11 | [Linux setup archive](https://github.com/tokenbroker/sims2-psp-recomp/releases/download/v0.2.1/Sims2PSP-linux-x64-setup-0.2.1.tar.gz) |
 
 **These are source installers.** Supply your own supported USA ISO; first setup
 compiles the game locally. No prebuilt game runtime or disc data is included.
 Windows bundles Python and requires CMake and Visual Studio C++ tools. Linux
 users run `./setup.sh` after installing the documented build dependencies.
 See [BUILD.md](docs/BUILD.md) and [LINUX.md](docs/LINUX.md).
+
+Common display, audio and input settings are also available on the RecompLauncher
+game page starting with v0.2.1. Full controls remain in F1.
 
 ## Build and run
 

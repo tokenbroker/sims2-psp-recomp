@@ -63,3 +63,18 @@ disabled; the backend reports SDR explicitly. Wayland fullscreen requests are
 subject to the compositor. See [LINUX.md](LINUX.md) for build and hardware status.
 
 Detailed input behavior and limits: [INPUT.md](INPUT.md). Both backends now share the complete F2 graph, resolution, aspect, cap, VSync and HDR/SDR status panel.
+
+
+## RecompLauncher settings
+
+Starting with v0.2.1, the game page exposes output resolution, window mode,
+internal scale, aspect/camera matching, filtering, V-Sync, presentation limits,
+F2 statistics, volume/mute and common input preferences. Full rebinding and
+advanced display options remain in F1. Settings apply on the next launch;
+close the game before changing settings in RecompLauncher.
+
+The launcher edits the same `[host]` INI section used by F1: LocalAppData on
+Windows, XDG config on Linux. It creates defaults only for a missing file,
+preserves existing bindings and does not reset preferences on each launch.
+Choosing a fixed internal multiplier clears fractional scaling. Presentation
+limits do not change the native engine frame rate.

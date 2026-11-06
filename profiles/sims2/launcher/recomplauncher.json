@@ -42,5 +42,696 @@
     "2": "The game was started with invalid arguments.",
     "3": "The development build reached a runtime stopping point. See its output for the stopping reason or missing feature."
   },
-  "repo": "tokenbroker/sims2-psp-recomp"
+  "repo": "tokenbroker/sims2-psp-recomp",
+  "config": [
+    {
+      "id": "main",
+      "format": "ini",
+      "file": [
+        {
+          "path": "{local}/Sims2PSPRecomp/settings.ini"
+        }
+      ],
+      "new": {
+        "host/window_mode": "windowed",
+        "host/width": "1920",
+        "host/height": "1080",
+        "host/render_scale": "4",
+        "host/render_percent": "0",
+        "host/aspect": "native",
+        "host/match_camera_aspect": "0",
+        "host/filter": "nearest",
+        "host/anisotropy": "0",
+        "host/vsync": "1",
+        "host/fps_cap": "0",
+        "host/show_performance": "0",
+        "host/volume": "100",
+        "host/muted": "0",
+        "host/right_stick_camera": "0",
+        "host/stick_deadzone": "18",
+        "host/mouse_camera": "1",
+        "host/invert_camera": "0",
+        "host/input_hints": "0",
+        "host/controller_labels": "0"
+      }
+    }
+  ],
+  "settings": [
+    {
+      "id": "window",
+      "label": "Window mode",
+      "help": "Choose windowed, desktop borderless or exclusive fullscreen.",
+      "choices": [
+        {
+          "label": "Windowed",
+          "set": {
+            "host/window_mode": "windowed"
+          }
+        },
+        {
+          "label": "Borderless",
+          "set": {
+            "host/window_mode": "borderless"
+          }
+        },
+        {
+          "label": "Fullscreen",
+          "set": {
+            "host/window_mode": "fullscreen"
+          }
+        }
+      ],
+      "defaults": {
+        "host/window_mode": "windowed"
+      }
+    },
+    {
+      "id": "resolution",
+      "label": "Output resolution",
+      "help": "Window or fullscreen output size; borderless follows the desktop.",
+      "choices": [
+        {
+          "label": "480 x 272",
+          "set": {
+            "host/width": "480",
+            "host/height": "272"
+          }
+        },
+        {
+          "label": "1280 x 720",
+          "set": {
+            "host/width": "1280",
+            "host/height": "720"
+          }
+        },
+        {
+          "label": "1280 x 800",
+          "set": {
+            "host/width": "1280",
+            "host/height": "800"
+          }
+        },
+        {
+          "label": "1920 x 1080",
+          "set": {
+            "host/width": "1920",
+            "host/height": "1080"
+          }
+        },
+        {
+          "label": "1920 x 1200",
+          "set": {
+            "host/width": "1920",
+            "host/height": "1200"
+          }
+        },
+        {
+          "label": "2560 x 1440",
+          "set": {
+            "host/width": "2560",
+            "host/height": "1440"
+          }
+        },
+        {
+          "label": "2560 x 1600",
+          "set": {
+            "host/width": "2560",
+            "host/height": "1600"
+          }
+        },
+        {
+          "label": "3440 x 1440",
+          "set": {
+            "host/width": "3440",
+            "host/height": "1440"
+          }
+        },
+        {
+          "label": "3840 x 2160",
+          "set": {
+            "host/width": "3840",
+            "host/height": "2160"
+          }
+        },
+        {
+          "label": "Desktop",
+          "set": {
+            "host/width": "0",
+            "host/height": "0"
+          }
+        }
+      ],
+      "defaults": {
+        "host/width": "1920",
+        "host/height": "1080"
+      }
+    },
+    {
+      "id": "render_scale",
+      "label": "Internal resolution",
+      "help": "Fixed PSP multipliers; higher settings need more GPU power.",
+      "choices": [
+        {
+          "label": "1x native",
+          "set": {
+            "host/render_scale": "1",
+            "host/render_percent": "0"
+          }
+        },
+        {
+          "label": "2x native",
+          "set": {
+            "host/render_scale": "2",
+            "host/render_percent": "0"
+          }
+        },
+        {
+          "label": "3x native",
+          "set": {
+            "host/render_scale": "3",
+            "host/render_percent": "0"
+          }
+        },
+        {
+          "label": "4x native",
+          "set": {
+            "host/render_scale": "4",
+            "host/render_percent": "0"
+          }
+        },
+        {
+          "label": "5x native",
+          "set": {
+            "host/render_scale": "5",
+            "host/render_percent": "0"
+          }
+        },
+        {
+          "label": "6x native",
+          "set": {
+            "host/render_scale": "6",
+            "host/render_percent": "0"
+          }
+        },
+        {
+          "label": "7x native",
+          "set": {
+            "host/render_scale": "7",
+            "host/render_percent": "0"
+          }
+        },
+        {
+          "label": "8x native",
+          "set": {
+            "host/render_scale": "8",
+            "host/render_percent": "0"
+          }
+        }
+      ],
+      "defaults": {
+        "host/render_scale": "4",
+        "host/render_percent": "0"
+      }
+    },
+    {
+      "id": "aspect",
+      "label": "Screen shape",
+      "help": "Letterbox to this shape; enable camera matching separately.",
+      "choices": [
+        {
+          "label": "PSP native",
+          "set": {
+            "host/aspect": "native"
+          }
+        },
+        {
+          "label": "16:9",
+          "set": {
+            "host/aspect": "16:9"
+          }
+        },
+        {
+          "label": "16:10",
+          "set": {
+            "host/aspect": "16:10"
+          }
+        },
+        {
+          "label": "21:9",
+          "set": {
+            "host/aspect": "21:9"
+          }
+        },
+        {
+          "label": "32:9",
+          "set": {
+            "host/aspect": "32:9"
+          }
+        },
+        {
+          "label": "4:3",
+          "set": {
+            "host/aspect": "4:3"
+          }
+        },
+        {
+          "label": "Stretch",
+          "set": {
+            "host/aspect": "stretch"
+          }
+        }
+      ],
+      "defaults": {
+        "host/aspect": "native"
+      }
+    },
+    {
+      "id": "match_camera_aspect",
+      "label": "Match camera to screen",
+      "help": "Adjust the camera and HUD to the selected aspect ratio.",
+      "choices": [
+        {
+          "label": "Off",
+          "set": {
+            "host/match_camera_aspect": "0"
+          }
+        },
+        {
+          "label": "On",
+          "set": {
+            "host/match_camera_aspect": "1"
+          }
+        }
+      ],
+      "defaults": {
+        "host/match_camera_aspect": "0"
+      }
+    },
+    {
+      "id": "filter",
+      "label": "Output filtering",
+      "help": "Choose crisp pixels or smooth scaling.",
+      "choices": [
+        {
+          "label": "Sharp",
+          "set": {
+            "host/filter": "nearest"
+          }
+        },
+        {
+          "label": "Smooth",
+          "set": {
+            "host/filter": "linear"
+          }
+        }
+      ],
+      "defaults": {
+        "host/filter": "nearest"
+      }
+    },
+    {
+      "id": "anisotropy",
+      "label": "Anisotropic filtering",
+      "help": "Sharpen angled textures when supported by the renderer.",
+      "choices": [
+        {
+          "label": "Game default",
+          "set": {
+            "host/anisotropy": "0"
+          }
+        },
+        {
+          "label": "2x",
+          "set": {
+            "host/anisotropy": "2"
+          }
+        },
+        {
+          "label": "4x",
+          "set": {
+            "host/anisotropy": "4"
+          }
+        },
+        {
+          "label": "8x",
+          "set": {
+            "host/anisotropy": "8"
+          }
+        },
+        {
+          "label": "16x",
+          "set": {
+            "host/anisotropy": "16"
+          }
+        }
+      ],
+      "defaults": {
+        "host/anisotropy": "0"
+      }
+    },
+    {
+      "id": "vsync",
+      "label": "V-Sync",
+      "help": "Synchronize presentation with the display.",
+      "choices": [
+        {
+          "label": "Off",
+          "set": {
+            "host/vsync": "0"
+          }
+        },
+        {
+          "label": "On",
+          "set": {
+            "host/vsync": "1"
+          }
+        }
+      ],
+      "defaults": {
+        "host/vsync": "1"
+      }
+    },
+    {
+      "id": "fps_cap",
+      "label": "Presentation limit",
+      "help": "Limits presentation only; does not unlock the PSP engine frame rate.",
+      "choices": [
+        {
+          "label": "Uncapped",
+          "set": {
+            "host/fps_cap": "0"
+          }
+        },
+        {
+          "label": "30",
+          "set": {
+            "host/fps_cap": "30"
+          }
+        },
+        {
+          "label": "60",
+          "set": {
+            "host/fps_cap": "60"
+          }
+        },
+        {
+          "label": "72",
+          "set": {
+            "host/fps_cap": "72"
+          }
+        },
+        {
+          "label": "120",
+          "set": {
+            "host/fps_cap": "120"
+          }
+        },
+        {
+          "label": "144",
+          "set": {
+            "host/fps_cap": "144"
+          }
+        },
+        {
+          "label": "165",
+          "set": {
+            "host/fps_cap": "165"
+          }
+        },
+        {
+          "label": "240",
+          "set": {
+            "host/fps_cap": "240"
+          }
+        }
+      ],
+      "defaults": {
+        "host/fps_cap": "0"
+      }
+    },
+    {
+      "id": "show_performance",
+      "label": "Performance overlay",
+      "help": "Show the shared F2 performance graph and statistics.",
+      "choices": [
+        {
+          "label": "Off",
+          "set": {
+            "host/show_performance": "0"
+          }
+        },
+        {
+          "label": "On",
+          "set": {
+            "host/show_performance": "1"
+          }
+        }
+      ],
+      "defaults": {
+        "host/show_performance": "0"
+      }
+    },
+    {
+      "id": "volume",
+      "label": "Volume",
+      "help": "Master output volume.",
+      "choices": [
+        {
+          "label": "0%",
+          "set": {
+            "host/volume": "0"
+          }
+        },
+        {
+          "label": "25%",
+          "set": {
+            "host/volume": "25"
+          }
+        },
+        {
+          "label": "50%",
+          "set": {
+            "host/volume": "50"
+          }
+        },
+        {
+          "label": "75%",
+          "set": {
+            "host/volume": "75"
+          }
+        },
+        {
+          "label": "100%",
+          "set": {
+            "host/volume": "100"
+          }
+        }
+      ],
+      "defaults": {
+        "host/volume": "100"
+      }
+    },
+    {
+      "id": "muted",
+      "label": "Mute audio",
+      "help": "Silence audio without changing the saved volume.",
+      "choices": [
+        {
+          "label": "Off",
+          "set": {
+            "host/muted": "0"
+          }
+        },
+        {
+          "label": "On",
+          "set": {
+            "host/muted": "1"
+          }
+        }
+      ],
+      "defaults": {
+        "host/muted": "0"
+      }
+    },
+    {
+      "id": "right_stick_camera",
+      "label": "Right-stick camera",
+      "help": "Map horizontal right-stick movement to PSP shoulder buttons.",
+      "choices": [
+        {
+          "label": "Off",
+          "set": {
+            "host/right_stick_camera": "0"
+          }
+        },
+        {
+          "label": "On",
+          "set": {
+            "host/right_stick_camera": "1"
+          }
+        }
+      ],
+      "defaults": {
+        "host/right_stick_camera": "0"
+      }
+    },
+    {
+      "id": "deadzone",
+      "label": "Stick deadzone",
+      "help": "Ignore small movements around the stick center.",
+      "choices": [
+        {
+          "label": "5%",
+          "set": {
+            "host/stick_deadzone": "5"
+          }
+        },
+        {
+          "label": "10%",
+          "set": {
+            "host/stick_deadzone": "10"
+          }
+        },
+        {
+          "label": "15%",
+          "set": {
+            "host/stick_deadzone": "15"
+          }
+        },
+        {
+          "label": "18%",
+          "set": {
+            "host/stick_deadzone": "18"
+          }
+        },
+        {
+          "label": "20%",
+          "set": {
+            "host/stick_deadzone": "20"
+          }
+        },
+        {
+          "label": "25%",
+          "set": {
+            "host/stick_deadzone": "25"
+          }
+        },
+        {
+          "label": "30%",
+          "set": {
+            "host/stick_deadzone": "30"
+          }
+        },
+        {
+          "label": "40%",
+          "set": {
+            "host/stick_deadzone": "40"
+          }
+        }
+      ],
+      "defaults": {
+        "host/stick_deadzone": "18"
+      }
+    },
+    {
+      "id": "mouse_camera",
+      "label": "Mouse camera",
+      "help": "Hold the right mouse button and drag horizontally to rotate.",
+      "choices": [
+        {
+          "label": "Off",
+          "set": {
+            "host/mouse_camera": "0"
+          }
+        },
+        {
+          "label": "On",
+          "set": {
+            "host/mouse_camera": "1"
+          }
+        }
+      ],
+      "defaults": {
+        "host/mouse_camera": "1"
+      }
+    },
+    {
+      "id": "invert_camera",
+      "label": "Invert camera",
+      "help": "Reverse horizontal mouse and right-stick camera rotation.",
+      "choices": [
+        {
+          "label": "Off",
+          "set": {
+            "host/invert_camera": "0"
+          }
+        },
+        {
+          "label": "On",
+          "set": {
+            "host/invert_camera": "1"
+          }
+        }
+      ],
+      "defaults": {
+        "host/invert_camera": "0"
+      }
+    },
+    {
+      "id": "input_hints",
+      "label": "Input hints",
+      "help": "Show host bindings without replacing original game artwork.",
+      "choices": [
+        {
+          "label": "Off",
+          "set": {
+            "host/input_hints": "0"
+          }
+        },
+        {
+          "label": "On",
+          "set": {
+            "host/input_hints": "1"
+          }
+        }
+      ],
+      "defaults": {
+        "host/input_hints": "0"
+      }
+    },
+    {
+      "id": "controller_labels",
+      "label": "Controller labels",
+      "help": "Button labels in host hints and settings.",
+      "choices": [
+        {
+          "label": "Xbox / Steam Deck",
+          "set": {
+            "host/controller_labels": "0"
+          }
+        },
+        {
+          "label": "PlayStation",
+          "set": {
+            "host/controller_labels": "1"
+          }
+        },
+        {
+          "label": "Nintendo",
+          "set": {
+            "host/controller_labels": "2"
+          }
+        },
+        {
+          "label": "Physical positions",
+          "set": {
+            "host/controller_labels": "3"
+          }
+        }
+      ],
+      "defaults": {
+        "host/controller_labels": "0"
+      }
+    }
+  ]
 }
