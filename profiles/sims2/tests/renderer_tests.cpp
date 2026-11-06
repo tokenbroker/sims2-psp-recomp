@@ -2,6 +2,9 @@
 #include "ge/ge.hpp"
 #include <algorithm>
 #include <iostream>
+#if defined(SIMS2_VULKAN)
+#include <SDL3/SDL.h>
+#endif
 #if !defined(SIMS2_VULKAN)
 #include <d3d11.h>
 #include <wrl/client.h>
@@ -36,6 +39,53 @@ int main(int argc,char **argv) {
         renderer.draw(memory, call); renderer.flush(memory);
         require(memory.load32(0x04000000u + (25u * 512u + 15u) * 4u) == 0xFF000000u, "Source blend did not use destination color");
         call.blend.enabled = false;
+        // Shadows and light cones must blend using their alpha, rather than
+        // covering the destination with an opaque black polygon.
+        call.vertices[1].color=0xffffffffu;
+        renderer.draw(memory,call);
+        call.vertices[1].color=0x40000000u;
+        call.blend.enabled=true;call.blend.source_factor=2;call.blend.destination_factor=3;
+        renderer.draw(memory,call);renderer.flush(memory);
+        auto shadow=memory.load32(0x04000000u+(25u*512u+15u)*4u);
+        require((shadow&0x00ffffffu)==0x00bfbfbfu,"Translucent shadow became opaque");
+#if defined(SIMS2_VULKAN)
+        for(float presentation_scale : (scale==1?std::vector<float>{1.f,1.25f}:std::vector<float>{float(scale)})){
+            if(renderer.render_scale()!=presentation_scale){
+                renderer.set_render_scale(presentation_scale);
+                call.blend.enabled=false;call.vertices[1].color=0xffffffffu;renderer.draw(memory,call);
+                call.blend.enabled=true;call.vertices[1].color=0x40000000u;renderer.draw(memory,call);renderer.flush(memory);
+            }
+            auto *device=static_cast<SDL_GPUDevice*>(renderer.gpu_device());
+            auto *image=static_cast<SDL_GPUTexture*>(renderer.gpu_presentation(memory,0x04000000u,512,3));
+            require(image!=nullptr,"Missing shadow presentation image");
+            const auto size=renderer.gpu_dimensions();
+            SDL_GPUTransferBufferCreateInfo info{};info.usage=SDL_GPU_TRANSFERBUFFERUSAGE_DOWNLOAD;info.size=size[0]*size[1]*4;
+            auto *readback=SDL_CreateGPUTransferBuffer(device,&info);require(readback!=nullptr,"Create presentation readback");
+            auto *commands=SDL_AcquireGPUCommandBuffer(device);auto *copy=SDL_BeginGPUCopyPass(commands);
+            SDL_GPUTextureRegion source{};source.texture=image;source.w=size[0];source.h=size[1];source.d=1;
+            SDL_GPUTextureTransferInfo destination{};destination.transfer_buffer=readback;destination.pixels_per_row=size[0];destination.rows_per_layer=size[1];
+            SDL_DownloadFromGPUTexture(copy,&source,&destination);SDL_EndGPUCopyPass(copy);
+            auto *fence=SDL_SubmitGPUCommandBufferAndAcquireFence(commands);
+            require(fence && SDL_WaitForGPUFences(device,true,&fence,1),"Wait presentation readback");
+            SDL_ReleaseGPUFence(device,fence);
+            auto *pixels=static_cast<const std::uint32_t*>(SDL_MapGPUTransferBuffer(device,readback,false));
+            require(pixels!=nullptr,"Map presentation readback");const auto presented=pixels[unsigned(25*presentation_scale)*size[0]+unsigned(15*presentation_scale)];
+            if(presentation_scale==1)for(unsigned i=0;i<512u*272u;++i)
+                require((pixels[i]&0x00ffffffu)==(memory.load32(0x04000000u+i*4u)&0x00ffffffu),
+                        "Opaque display copy changed RGB or image orientation");
+            SDL_UnmapGPUTransferBuffer(device,readback);SDL_ReleaseGPUTransferBuffer(device,readback);
+            require(presented==0xffbfbfbfu,"Game framebuffer alpha leaked into presentation opacity");
+            require(memory.load32(0x04000000u+(25u*512u+15u)*4u)==shadow,
+                    "Opaque presentation modified PSP framebuffer alpha");
+        }
+        renderer.set_render_scale(scale);
+#endif
+        call.vertices[1].color=0xffffffffu;
+        call.blend.source_factor=4;call.blend.destination_factor=10;call.blend.fixed_destination=0;
+        renderer.draw(memory,call);renderer.flush(memory);
+        require((memory.load32(0x04000000u+(25u*512u+15u)*4u)&0x00ffffffu)==0x00404040u,
+                "Display copy changed game destination-alpha blending");
+        call.blend.enabled=false;
         call.primitive = PrimitiveType::Triangles; call.through = false; call.vertices.resize(3);
         for (unsigned i = 0; i < 4; ++i) call.world[i * 5] = call.view[i * 5] = call.projection[i * 5] = 1;
         call.viewport.x_scale = 256; call.viewport.y_scale = -136; call.viewport.z_scale = 32767.5f;

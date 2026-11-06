@@ -30,6 +30,7 @@ public:
     // Portable Vulkan backend handles (SDL_GPU); null on the D3D11 backend.
 #if defined(SIMS2_VULKAN)
     void *gpu_device() const noexcept;
+    // Opaque display copy: PSP framebuffer alpha remains available to the game.
     void *gpu_presentation(const psprecomp::GuestMemory &, std::uint32_t, unsigned, unsigned) const;
     std::array<unsigned,2> gpu_dimensions() const noexcept;
 #endif

@@ -171,7 +171,8 @@ struct NativeRenderer::Impl {
         RenderTarget guest;
         bool dirty{}, upload{true};
         std::vector<std::uint8_t> snapshot;
-        SDL_GPUTexture *color{}, *depth{}, *native{};
+        SDL_GPUTexture *color{}, *depth{}, *native{}, *presentation{};
+        bool presentation_ready{};
         SDL_GPUTransferBuffer *readback{};
     };
     std::map<std::tuple<std::uint32_t, std::uint32_t, std::uint32_t>, Target> targets;
@@ -179,6 +180,8 @@ struct NativeRenderer::Impl {
     std::map<unsigned, SDL_GPUSampler *> samplers;
     std::map<std::array<unsigned, 12>, SDL_GPUGraphicsPipeline *> pipelines;
     SDL_GPUTexture *white{};
+    SDL_GPUGraphicsPipeline *opaque_presentation{};
+    SDL_GPUSampler *presentation_sampler{};
     unsigned scaled_width() const { return std::max(1u, unsigned(std::lround(width * scale))); }
     unsigned scaled_height() const { return std::max(1u, unsigned(std::lround(height * scale))); }
     SDL_GPUCommandBuffer *cmd() {
@@ -258,6 +261,68 @@ struct NativeRenderer::Impl {
         info.filter = SDL_GPU_FILTER_NEAREST;
         SDL_BlitGPUTexture(cmd(), &info);
     }
+    SDL_GPUTexture *presentation(Target &target) {
+        if(target.presentation_ready)return target.presentation;
+        if(!target.presentation)
+            target.presentation=texture(scaled_width(),scaled_height(),
+                SDL_GPU_TEXTUREUSAGE_COLOR_TARGET|SDL_GPU_TEXTUREUSAGE_SAMPLER);
+        // PSP framebuffer alpha is game/stencil data, not window opacity.
+        // Keep it intact in color/native and make only the display copy opaque.
+        if(!opaque_presentation) {
+            SDL_GPUGraphicsPipelineCreateInfo info{};
+            info.vertex_shader=vs;info.fragment_shader=ps;
+            info.primitive_type=SDL_GPU_PRIMITIVETYPE_TRIANGLESTRIP;
+            SDL_GPUVertexBufferDescription buffer{0,sizeof(GpuVertex),SDL_GPU_VERTEXINPUTRATE_VERTEX,0};
+            const SDL_GPUVertexAttribute attributes[]{
+                {0,0,SDL_GPU_VERTEXELEMENTFORMAT_FLOAT4,0},
+                {1,0,SDL_GPU_VERTEXELEMENTFORMAT_FLOAT3,offsetof(GpuVertex,uv)},
+                {2,0,SDL_GPU_VERTEXELEMENTFORMAT_FLOAT4,offsetof(GpuVertex,color)},
+                {3,0,SDL_GPU_VERTEXELEMENTFORMAT_FLOAT4,offsetof(GpuVertex,extra)}};
+            info.vertex_input_state={&buffer,1,attributes,4};
+            info.rasterizer_state.fill_mode=SDL_GPU_FILLMODE_FILL;
+            info.multisample_state.sample_count=SDL_GPU_SAMPLECOUNT_1;
+            SDL_GPUColorTargetDescription color{};color.format=SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM;
+            color.blend_state.enable_color_write_mask=true;
+            color.blend_state.color_write_mask=SDL_GPU_COLORCOMPONENT_R|SDL_GPU_COLORCOMPONENT_G|
+                SDL_GPU_COLORCOMPONENT_B|SDL_GPU_COLORCOMPONENT_A;
+            color.blend_state.src_color_blendfactor=color.blend_state.src_alpha_blendfactor=SDL_GPU_BLENDFACTOR_ONE;
+            color.blend_state.dst_color_blendfactor=color.blend_state.dst_alpha_blendfactor=SDL_GPU_BLENDFACTOR_ZERO;
+            color.blend_state.color_blend_op=color.blend_state.alpha_blend_op=SDL_GPU_BLENDOP_ADD;
+            info.target_info.color_target_descriptions=&color;info.target_info.num_color_targets=1;
+            opaque_presentation=SDL_CreateGPUGraphicsPipeline(device,&info);
+            require(opaque_presentation,"Create opaque presentation pipeline");
+            SDL_GPUSamplerCreateInfo sampler{};
+            presentation_sampler=SDL_CreateGPUSampler(device,&sampler);
+            require(presentation_sampler,"Create presentation sampler");
+        }
+        std::array<GpuVertex,4> quad{};
+        for(unsigned i=0;i<4;++i) {
+            quad[i].position={i&1u?1.f:-1.f,i&2u?-1.f:1.f,0,1};
+            quad[i].color={1,1,1,1};quad[i].extra[3]=1;
+            quad[i].uv={i&1u?1.f:0.f,i&2u?1.f:0.f,1};
+        }
+        if(vertex_cursor+sizeof(quad)>vertex_capacity)submit();
+        const auto transfer=upload(quad.data(),sizeof(quad));
+        auto *copy=SDL_BeginGPUCopyPass(cmd());
+        SDL_GPUTransferBufferLocation source{transfer.buffer,transfer.offset};
+        SDL_GPUBufferRegion destination{vertices,vertex_cursor,sizeof(quad)};
+        SDL_UploadToGPUBuffer(copy,&source,&destination,vertex_cursor==0);SDL_EndGPUCopyPass(copy);
+        SDL_GPUColorTargetInfo color{};color.texture=target.presentation;
+        color.load_op=SDL_GPU_LOADOP_DONT_CARE;color.store_op=SDL_GPU_STOREOP_STORE;
+        auto *pass=SDL_BeginGPURenderPass(cmd(),&color,1,nullptr);
+        require(pass,"Begin opaque presentation pass");
+        SDL_BindGPUGraphicsPipeline(pass,opaque_presentation);
+        SDL_GPUViewport viewport{0,0,float(scaled_width()),float(scaled_height()),0,1};
+        SDL_SetGPUViewport(pass,&viewport);
+        SDL_Rect scissor{0,0,int(scaled_width()),int(scaled_height())};SDL_SetGPUScissor(pass,&scissor);
+        SDL_GPUBufferBinding binding{vertices,vertex_cursor};SDL_BindGPUVertexBuffers(pass,0,&binding,1);
+        SDL_GPUTextureSamplerBinding sample{target.color,presentation_sampler};SDL_BindGPUFragmentSamplers(pass,0,&sample,1);
+        Parameters parameters{};parameters.textured=1;parameters.function=3;
+        SDL_PushGPUFragmentUniformData(cmd(),0,&parameters,sizeof(parameters));
+        SDL_DrawGPUPrimitives(pass,4,1,0,0);SDL_EndGPURenderPass(pass);
+        submit();target.presentation_ready=true;
+        return target.presentation;
+    }
     Target &target(psprecomp::GuestMemory &memory, const RenderTarget &guest) {
         if (guest.color_stride < 1 || guest.color_stride > 2048 || guest.color_format > 3 ||
             !memory.contains(guest.color_address,
@@ -314,6 +379,7 @@ struct NativeRenderer::Impl {
             SDL_ReleaseGPUTexture(device, t.depth);
             SDL_ReleaseGPUTexture(device, t.native);
             if(t.readback)SDL_ReleaseGPUTransferBuffer(device,t.readback);
+            if(t.presentation)SDL_ReleaseGPUTexture(device,t.presentation);
         }
         targets.clear();
     }
@@ -340,6 +406,8 @@ struct NativeRenderer::Impl {
             SDL_ReleaseGPUBuffer(device, vertices);
         if(uploads)
             SDL_ReleaseGPUTransferBuffer(device,uploads);
+        if(opaque_presentation)SDL_ReleaseGPUGraphicsPipeline(device,opaque_presentation);
+        if(presentation_sampler)SDL_ReleaseGPUSampler(device,presentation_sampler);
         if (vs)
             SDL_ReleaseGPUShader(device, vs);
         if (ps)
@@ -401,16 +469,16 @@ ID3D11ShaderResourceView *NativeRenderer::presentation_view(const psprecomp::Gue
 }
 void *NativeRenderer::gpu_presentation(const psprecomp::GuestMemory &memory, std::uint32_t address,
                                        unsigned stride, unsigned format) const {
-    const auto &r = *impl_;
+    auto &r = *impl_;
     auto it = r.targets.find({address, stride, format});
     if (it == r.targets.end())
         return nullptr;
-    const auto &t = it->second;
+    auto &t = it->second;
     if (t.dirty)
         return nullptr;
     const auto size = std::size_t(stride) * height * (format == 3 ? 4 : 2);
     auto *raw = memory.raw_pointer(address, size);
-    return raw && t.snapshot.size() == size && !std::memcmp(raw, t.snapshot.data(), size) ? t.color : nullptr;
+    return raw && t.snapshot.size() == size && !std::memcmp(raw, t.snapshot.data(), size) ? r.presentation(t) : nullptr;
 }
 std::uint64_t NativeRenderer::draws() const noexcept { return impl_->count; }
 std::uint64_t NativeRenderer::framebuffer_readbacks() const noexcept { return impl_->flush_count; }
@@ -881,6 +949,7 @@ void NativeRenderer::draw(psprecomp::GuestMemory &memory, const DrawCall &call) 
     SDL_EndGPURenderPass(pass);
     r.vertex_cursor += bytes;
     target.dirty = true;
+    target.presentation_ready=false;
     ++r.count;
     r.draw_ns +=
         std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - start)

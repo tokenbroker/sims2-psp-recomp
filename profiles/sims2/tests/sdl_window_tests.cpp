@@ -57,6 +57,18 @@ int main() {
         settings.vsync = false;
         settings.input.input_hints=true;
         window.apply_settings(settings);
+        // Exercise the real GPU-image presentation path, including a framebuffer
+        // whose alpha is shadow data rather than display transparency.
+        sims2::gpu::DrawCall scene{};scene.through=true;scene.has_vertex_color=true;
+        scene.primitive=sims2::gpu::PrimitiveType::Sprites;
+        scene.target={frame.address,512,3,0x04180000u,512};scene.vertices.resize(2);
+        scene.vertices[0].position={0,0,0,1};scene.vertices[1].position={480,272,0,1};
+        scene.vertices[1].color=0xffffffffu;renderer.draw(memory,scene);
+        scene.vertices[1].color=0x40000000u;scene.blend.enabled=true;
+        scene.blend.source_factor=2;scene.blend.destination_factor=3;
+        renderer.draw(memory,scene);renderer.flush(memory);
+        require(renderer.gpu_presentation(memory,frame.address,512,3)!=nullptr,
+                "Window test did not exercise GPU presentation");
         for (unsigned i = 0; i < 3; ++i)
             require(window.present(memory, frame, i * 16667, controller), "Window closed unexpectedly");
         key(SDL_SCANCODE_F2,SDLK_F2);window.present(memory,frame,45000,controller);

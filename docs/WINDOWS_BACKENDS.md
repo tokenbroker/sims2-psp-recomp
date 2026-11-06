@@ -40,6 +40,9 @@ upload allocations and excessive pixel-copy overhead. The 4x/120 Hz saved-game
 scenario now completes and exits cleanly. This supersedes the timeout as a
 current result; physical-window performance still needs user feedback.
 
+The [opaque presentation fix](VULKAN_PRESENTATION.md) also prevents PSP framebuffer
+alpha from turning shadows and light cones into black patches in Vulkan output.
+
 These hidden checks do not establish physical monitor FPS, audible playback
 quality, a full playthrough or sustained high-FPS Vulkan performance. Test saves,
 game-derived code, binaries and captures remain private local outputs. The local
