@@ -25,6 +25,21 @@ sudo dnf install gcc-c++ cmake ninja-build python3 pkgconf-pkg-config glslang \
   libavutil-free-devel freetype-devel fontconfig-devel liberation-sans-fonts
 ```
 
+Fedora's stock `libavcodec-free` lacked H.264 in the clean Fedora 44 check.
+For the full movie decoder, one supported package path adds RPM Fusion Free and
+its `libavcodec-freeworld` supplement, retaining the Fedora development headers:
+
+```sh
+sudo dnf install https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm
+sudo dnf install libavcodec-freeworld
+python3 profiles/sims2/tools/doctor.py
+```
+
+This explicitly enables a third-party package repository; setup does not enable
+it automatically on your machine. See [RPM Fusion's codec package source](https://github.com/rpmfusion/ffmpeg/blob/f44/ffmpeg.spec).
+The Fedora CI container uses this recipe. Keep H.264 and ATRAC3+ checks enabled;
+a successful C++ compile alone does not establish movie or audio support.
+
 Arch-family systems:
 
 ```sh
@@ -35,7 +50,9 @@ sudo pacman -Syu --needed base-devel cmake ninja python pkgconf glslang \
 
 Install your GPU's Vulkan driver too, such as `vulkan-radeon` for AMD or
 `vulkan-intel` for Intel on Arch. Software rendering in CI uses `vulkan-swrast`.
-Fedora and Arch container jobs are being validated; container results do not
+Arch rolling passed 43 host checks and the Wayland shell check in the
+[clean container run](https://github.com/tokenbroker/sims2-psp-recomp/actions/runs/42191837434/job/127805488422).
+The Fedora full-codec recipe is still being validated. Container results do not
 prove physical GPU or Steam Deck compatibility.
 
 Run `python3 profiles/sims2/tools/doctor.py` before building. It checks tools,

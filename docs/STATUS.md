@@ -9,7 +9,7 @@ operations have been exercised. Encrypted save/load has been checked across
 fresh processes, including persistent furniture/design changes and a collected
 secret. Playtesting reports smooth gameplay and resolved audio choppiness.
 
-The project has 43 Windows automated checks covering the framework, kernel/HLE,
+The v0.2.3 Windows suite has 43 automated checks covering the framework, kernel/HLE,
 I/O, save crypto, GE/display/audio, controller sampling, GPU rendering, settings
 persistence, input options, HDR conversion and presentation limits. The GitHub Actions workflow uses synthetic host/framework tests on Windows and Linux and does not receive a game image. Both jobs passed in the [first hosted run](https://github.com/tokenbroker/sims2-psp-recomp/actions/runs/42169377061) at commit `befbf5c`.
 
@@ -97,3 +97,18 @@ The first Windows Vulkan CI run compiled successfully but exposed a missing GPU
 test classification: widescreen checks also instantiate the renderer. All six
 Vulkan renderer/window tests now carry the `gpu` label. Hosted Windows excludes
 that label; Linux continues to run those tests with software Vulkan.
+
+
+## Main: distro preflight and Arch validation
+
+Setup checks actual H.264 and ATRAC3+ decoder availability as well as development
+packages. ATRAC availability can be queried per codec; the bundled Windows FFmpeg
+build includes ATRAC3+ but not baseline ATRAC3. Linux reports the installed codec
+set, with baseline ATRAC3 optional. The shader compiler may be named either
+`glslangValidator` or `glslang`.
+
+The official Arch rolling container passed 43 host checks and the Wayland shell
+check using llvmpipe in [this run](https://github.com/tokenbroker/sims2-psp-recomp/actions/runs/42191837434/job/127805488422).
+Fedora 44's stock codec build failed the H.264 preflight; its documented CI recipe
+now adds RPM Fusion Free's codec supplement. That recipe awaits its first passing
+build. These checks do not include a game image or physical GPU/Deck gameplay.

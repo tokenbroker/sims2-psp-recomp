@@ -60,6 +60,11 @@ jobs:
       - name: Fedora dependencies
         if: matrix.packages == 'fedora'
         run: dnf install -y git gcc-c++ cmake ninja-build python3 pkgconf-pkg-config glslang vulkan-loader-devel mesa-vulkan-drivers SDL3-devel libavcodec-free-devel libavutil-free-devel freetype-devel fontconfig-devel liberation-sans-fonts xorg-x11-server-Xvfb xorg-x11-xauth weston
+      - name: Fedora full movie decoder
+        if: matrix.packages == 'fedora'
+        run: |
+          dnf install -y https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-44.noarch.rpm
+          dnf install -y libavcodec-freeworld
       - name: Arch dependencies
         if: matrix.packages == 'arch'
         run: pacman -Syu --noconfirm --needed git base-devel cmake ninja python pkgconf glslang vulkan-icd-loader vulkan-swrast sdl3 ffmpeg freetype2 fontconfig ttf-liberation libdecor libxkbcommon wayland xorg-server-xvfb xorg-xauth weston
