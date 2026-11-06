@@ -21,6 +21,7 @@ from prepare import prepare
 from doctor import check as check_prerequisites
 from check_local_build import check_local_build
 from setup_process import external_dll_search, own_process_job
+from runtime_package import stage_companion
 
 
 FROZEN = getattr(sys, "frozen", False)
@@ -35,11 +36,12 @@ def report_progress(fraction, message):
 
 
 class CompilationProgress:
-    def __init__(self, total, emit=report_progress):
+    def __init__(self, total, emit=report_progress, start=0.25, span=0.64):
         self.total = max(1, total)
         self.highest = -1
         self.reported = -9
         self.emit = emit
+        self.start, self.span = start, span
 
     def __call__(self, line):
         match = re.fullmatch(r"\s*generated_unit_(\d+)\.cpp\s*", line)
@@ -48,7 +50,7 @@ class CompilationProgress:
         self.highest = max(self.highest, min(self.total - 1, int(match[1])))
         if self.highest - self.reported >= 8 or self.highest == self.total - 1:
             self.reported = self.highest
-            self.emit(0.25 + 0.64 * (self.highest + 1) / self.total,
+            self.emit(self.start + self.span * (self.highest + 1) / self.total,
                       f"Compiling game code (unit {self.highest + 1} of {self.total})")
 
 
@@ -133,7 +135,8 @@ def main():
                         help="Validate/extract and generate code without compiling the game")
     parser.add_argument("--runtime-only", action="store_true", default=FROZEN,
                         help="Stage the runtime without building another setup executable")
-    parser.add_argument("--graphics", choices=("D3D11", "VULKAN"), default="D3D11")
+    parser.add_argument("--graphics", choices=("D3D11", "VULKAN", "BOTH"), default="BOTH",
+                        help="BOTH installs a D3D11 primary and a selectable Vulkan companion")
     args = parser.parse_args()
     if FROZEN:
         try:
@@ -165,6 +168,11 @@ def main():
     if not FROZEN:
         from fetch_dependencies import ensure_dependencies
         ensure_dependencies()
+    shader_tool = None
+    if args.graphics in ("VULKAN", "BOTH"):
+        import fetch_dependencies
+        fetch_dependencies.ROOT, fetch_dependencies.PROFILE = ROOT, PROFILE
+        shader_tool = fetch_dependencies.ensure_shader_tools()
     for dependency in (PROFILE / "third_party/SDL3/include/SDL3/SDL.h",
                        PROFILE / "third_party/SDL3/lib/x64/SDL3.lib",
                        PROFILE / "third_party/SDL3/lib/x64/SDL3.dll",
@@ -209,14 +217,22 @@ def main():
             report_progress(1, "Code generation complete")
             return
         report_progress(0.22, "Configuring the game build")
-        run([cmake, "-S", ROOT, "-B", build, "-G", "Visual Studio 17 2022", "-A", "x64",
-             "-DPSPRECOMP_PROFILE=sims2", "-DSIMS2_HOST_TESTS_ONLY=OFF", "-DSIMS2_TIMING_RESEARCH=OFF", "-DPSPRECOMP_BUILD_TESTS=OFF",
-             "-DPSPRECOMP_BUILD_PROFILE_TESTS=OFF", "-DPSPRECOMP_MSVC_MP_JOBS=1",
-             "-DSIMS2_OPTIMIZE_AOT=ON", f"-DSIMS2_GRAPHICS_BACKEND={args.graphics}", f"-DSIMS2_GENERATED_DIR={generated}"], log)
-        report_progress(0.25, "Compiling game code; completed work is reused")
-        run([cmake, "--build", build, "--config", "Release", "--target", "sims2",
-             "--parallel", args.jobs, "--", "/nodeReuse:false"], log, CompilationProgress(len(units)))
-        probe = build / "profiles/sims2/Release/sims2_probe.exe"
+        graphics = ["D3D11", "VULKAN"] if args.graphics == "BOTH" else [args.graphics]
+        probes = {}
+        for index, backend in enumerate(graphics):
+            backend_build = build if index == 0 else workspace / "build-vulkan"
+            options = [f"-DSIMS2_GLSLANG={shader_tool}"] if backend == "VULKAN" else []
+            run([cmake, "-S", ROOT, "-B", backend_build, "-G", "Visual Studio 17 2022", "-A", "x64",
+                 "-DPSPRECOMP_PROFILE=sims2", "-DSIMS2_HOST_TESTS_ONLY=OFF", "-DSIMS2_TIMING_RESEARCH=OFF", "-DPSPRECOMP_BUILD_TESTS=OFF",
+                 "-DPSPRECOMP_BUILD_PROFILE_TESTS=OFF", "-DPSPRECOMP_MSVC_MP_JOBS=1",
+                 "-DSIMS2_OPTIMIZE_AOT=ON", f"-DSIMS2_GRAPHICS_BACKEND={backend}", f"-DSIMS2_GENERATED_DIR={generated}", *options], log)
+            start=0.25+0.64*index/len(graphics)
+            report_progress(start, f"Compiling {backend}; completed work is reused")
+            run([cmake, "--build", backend_build, "--config", "Release", "--target", "sims2",
+                 "--parallel", args.jobs, "--", "/nodeReuse:false"], log,
+                CompilationProgress(len(units), start=start, span=0.64/len(graphics)))
+            probes[backend] = backend_build / "profiles/sims2/Release/sims2_probe.exe"
+        probe = probes[graphics[0]]
         receipt_path = install / "local-build.json"
         # Once package files begin changing, an earlier success receipt is stale.
         receipt_path.unlink(missing_ok=True)
@@ -230,13 +246,19 @@ def main():
             run([package_python, PROFILE / "tools/package_local.py", "--probe", probe,
                  "--output-dir", install, "--work-dir", workspace / "packaging"], log)
             run([install / "sims2_setup.exe", iso, "--output-dir", install / "game"], log)
+        if args.graphics == "BOTH":
+            stage_companion(probes["VULKAN"], install, "vulkan")
         report_progress(0.95, "Verifying game startup with an isolated save location")
         counters = check_local_build(iso, install, workspace / "validation")
+        if args.graphics == "BOTH":
+            check_local_build(iso, install, workspace / "validation-vulkan", runtime_subdir="vulkan")
         receipt = {
             "format": 1, "disc_id": identity["disc_id"],
             "boot_sha256": identity["boot_sha256"], "generated_units": len(units),
             "generator_sha256": digest(framework / "Release/psp_recomp.exe"),
             "runtime_sha256": digest(install / "sims2_probe.exe"),
+            "graphics_backends": graphics,
+            "runtime_hashes": {backend: digest(install / ("vulkan" if backend=="VULKAN" and args.graphics=="BOTH" else "") / "sims2_probe.exe") for backend in graphics},
             "startup_smoke_frames": counters["frames"],
             "elapsed_seconds": round(time.monotonic() - started, 2),
         }

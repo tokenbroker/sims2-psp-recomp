@@ -10,7 +10,9 @@ enum class WindowMode { Windowed, Borderless, Fullscreen };
 enum class AspectMode { Native, Widescreen, Stretch, Ultrawide, FourThree, SixteenTen, SuperUltrawide };
 enum class HdrMode { Off, Auto, On };
 enum class OutputFilter { Nearest, Linear };
+enum class GraphicsBackend { Default, D3D11, Vulkan };
 struct HostSettings {
+    GraphicsBackend graphics_backend = GraphicsBackend::Default;
     ctrl::InputConfig input;
     WindowMode mode = WindowMode::Windowed;
     unsigned width = 1920, height = 1080;

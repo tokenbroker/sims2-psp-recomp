@@ -89,8 +89,11 @@ not a complete high-FPS playthrough. Unlimited applies to presentation only.
 See [high-FPS investigation](docs/HIGH_FPS_RESEARCH.md). Published v0.2.4 assets
 predate this setting.
 HDR maps the original SDR image into HDR output; Windows HDR must be enabled on
-the current display. Windows defaults to **Direct3D 11**; an optional Vulkan build uses the portable
-SDL3 shell. Native Linux Vulkan builds support Wayland and X11. See
+the current display. Windows defaults to **Direct3D 11**. Dual-backend installs
+offer **F1 > Display > Graphics backend > Vulkan** (Save and restart).
+Build with `--graphics BOTH` to install both runtimes; Vulkan uses the SDL3 shell.
+See [Windows backend selection and validation](docs/WINDOWS_BACKENDS.md).
+Native Linux Vulkan builds support Wayland and X11. See
 [Linux validation and Steam Deck notes](docs/LINUX.md).
 
 Details and hardware limitations: [Settings](docs/SETTINGS.md).

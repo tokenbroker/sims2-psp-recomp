@@ -1,5 +1,6 @@
 #include "ctrl/host_input.hpp"
 #include "display/host_settings.hpp"
+#include "display/backend_selection.hpp"
 #include <filesystem>
 #include <iostream>
 #include <set>
@@ -67,11 +68,20 @@ int main(int argc, char **argv) {
         settings.input.gamepad[Cross] = 2;
         settings.input.controller_labels=2;
         settings.engine_fps=240u;
+        settings.graphics_backend=sims2::display::GraphicsBackend::Vulkan;
         const auto path = std::filesystem::temp_directory_path() / "sims2-input-roundtrip.ini";
         std::string error;
         require(sims2::display::save_host_settings(path, settings, error), "Input settings save");
         require(sims2::display::load_host_settings(path) == settings, "Input settings roundtrip");
         std::filesystem::remove(path);
+        using sims2::display::GraphicsBackend;
+        using sims2::display::selected_runtime;
+        const auto folder=std::filesystem::path("install");
+        require(selected_runtime(folder,GraphicsBackend::Default,GraphicsBackend::D3D11)==folder/"sims2_probe.exe",
+                "Default backend did not select installation runtime");
+        require(selected_runtime(folder,GraphicsBackend::Vulkan,GraphicsBackend::D3D11)==folder/"vulkan/sims2_probe.exe" &&
+                selected_runtime(folder,GraphicsBackend::D3D11,GraphicsBackend::Vulkan)==folder/"d3d11/sims2_probe.exe",
+                "Companion backend routing incorrect");
         settings.engine_fps=999u;
         require(sims2::display::validated_settings(settings).engine_fps==0u,
                 "Unsupported engine rate did not fall back to native");

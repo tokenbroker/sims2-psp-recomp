@@ -122,6 +122,14 @@ struct SettingsMenu : FrameHistory {
                     if (ImGui::BeginTable("display", 2, ImGuiTableFlags_SizingFixedFit)) {
                         ImGui::TableSetupColumn("label", ImGuiTableColumnFlags_WidthFixed, 210 * scale);
                         ImGui::TableSetupColumn("control", ImGuiTableColumnFlags_WidthStretch);
+#if defined(_WIN32)
+                        row("Graphics backend");
+                        int graphics=int(draft.graphics_backend);
+                        if(ImGui::Combo("##graphics_backend",&graphics,"Installation default\0Direct3D 11\0Vulkan (experimental)\0"))
+                            draft.graphics_backend=GraphicsBackend(graphics);
+                        note("Save and restart to switch renderers. The selected runtime must be installed.");
+                        ImGui::TextDisabled("Active: %s",backend.c_str());
+#endif
                         row("Window mode");
                         int mode = int(draft.mode);
                         if (ImGui::Combo("##mode", &mode,

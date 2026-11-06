@@ -8,6 +8,7 @@ saved preferences remain in effect until you choose Defaults and Save. F2 toggle
 
 | Setting | Behavior |
 | --- | --- |
+| Graphics backend (Windows) | Installation default, Direct3D 11 or experimental Vulkan. Save and restart; the chosen runtime must be installed. |
 | Window mode | Windowed, borderless, exclusive fullscreen. Unsupported exclusive requests fall back with a status message. |
 | Output size | Desktop, presets or custom width/height; zero follows the desktop. Borderless fills the monitor. |
 | Aspect | Native PSP, Auto, 4:3, 16:9, 16:10, 21:9 or 32:9. |

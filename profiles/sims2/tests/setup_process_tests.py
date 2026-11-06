@@ -13,10 +13,23 @@ TOOLS = Path(__file__).resolve().parents[1] / "tools"
 sys.path.insert(0, str(TOOLS))
 from setup_process import external_dll_search
 from build_from_iso import CompilationProgress
+from runtime_package import stage_companion, RUNTIME_FILES
 
 
 @unittest.skipUnless(os.name == "nt", "Windows process/DLL behavior")
 class SetupProcessTests(unittest.TestCase):
+    def test_companion_dependencies_are_isolated(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder);source=root/"source";install=root/"install"
+            source.mkdir();install.mkdir()
+            (install/"SDL3.dll").write_bytes(b"primary")
+            for name in RUNTIME_FILES:(source/name).write_bytes(name.encode())
+            target=stage_companion(source/"sims2_probe.exe",install,"vulkan")
+            self.assertEqual((install/"SDL3.dll").read_bytes(),b"primary")
+            self.assertEqual({p.name for p in target.iterdir()},set(RUNTIME_FILES))
+            (source/"SDL3.dll").unlink()
+            with self.assertRaises(RuntimeError):stage_companion(source/"sims2_probe.exe",install,"d3d11")
+            self.assertFalse((install/"d3d11").exists())
     def test_compiler_progress_is_monotonic(self):
         updates = []
         progress = CompilationProgress(575, lambda value, text: updates.append((value, text)))
@@ -29,6 +42,12 @@ class SetupProcessTests(unittest.TestCase):
         self.assertEqual(values, sorted(values))
         self.assertTrue(all(0.25 < value < 0.90 for value in values))
         self.assertIn("575", updates[-1][1])
+        updates.clear()
+        for start in (0.25,0.57):
+            part=CompilationProgress(575,lambda value,text:updates.append((value,text)),start=start,span=0.32)
+            for unit in (0,574):part(f"generated_unit_{unit:04}.cpp")
+        self.assertEqual([v for v,_ in updates],sorted(v for v,_ in updates))
+        self.assertAlmostEqual(updates[-1][0],0.89)
 
     def test_normal_completion_preserves_success(self):
         code = f"""

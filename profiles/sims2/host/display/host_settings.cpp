@@ -39,6 +39,7 @@ float effective_render_scale(const HostSettings &settings,unsigned output_height
     return settings.render_percent?std::clamp(float(output_height)*settings.render_percent/(100*272),0.5f,16.0f):float(settings.render_scale);
 }
 HostSettings validated_settings(HostSettings settings) {
+    if(unsigned(settings.graphics_backend)>unsigned(GraphicsBackend::Vulkan))settings.graphics_backend=GraphicsBackend::Default;
     settings.input=ctrl::validated_input(settings.input);
     if(!settings.width || !settings.height)settings.width=settings.height=0;
     else {settings.width=std::clamp(settings.width,480u,7680u);settings.height=std::clamp(settings.height,272u,4320u);}
@@ -113,6 +114,7 @@ HostSettings load_host_settings(const std::filesystem::path &path) {
         else if (key == "height") number(value, result.height);
         else if(key=="fps_cap")number(value,result.fps_cap);
         else if(key=="engine_fps")number(value,result.engine_fps);
+        else if(key=="graphics_backend")result.graphics_backend=value=="vulkan"?GraphicsBackend::Vulkan:value=="d3d11"?GraphicsBackend::D3D11:GraphicsBackend::Default;
         else if(key=="render_percent")number(value,result.render_percent);
         else if(key=="anisotropy")number(value,result.anisotropy);
         else if(key=="paper_white")number(value,result.paper_white);
@@ -156,6 +158,7 @@ bool save_host_settings(const std::filesystem::path &path, HostSettings settings
                << "\naspect=" << aspect_name(settings.aspect)
                << "\nrender_percent=" << settings.render_percent << "\nfps_cap=" << settings.fps_cap
                << "\nengine_fps=" << settings.engine_fps
+               << "\ngraphics_backend=" << (settings.graphics_backend==GraphicsBackend::Vulkan?"vulkan":settings.graphics_backend==GraphicsBackend::D3D11?"d3d11":"auto")
                << "\nanisotropy=" << settings.anisotropy << "\nhdr=" << (settings.hdr==HdrMode::Auto?"auto":settings.hdr==HdrMode::On?"on":"off")
                << "\npaper_white=" << settings.paper_white << "\npeak_nits=" << settings.peak_nits
                << "\nfilter=" << (settings.filter == OutputFilter::Nearest ? "nearest" : "linear")

@@ -371,7 +371,10 @@ NativeRenderer::NativeRenderer(bool) : impl_(std::make_unique<Impl>()) {
     r.submit();
     std::cerr << "[graphics] Vulkan (SDL GPU) adapter: " << SDL_GetStringProperty(SDL_GetGPUDeviceProperties(r.device),SDL_PROP_GPU_DEVICE_NAME_STRING,"unknown") << "\n";
 }
-NativeRenderer::~NativeRenderer() = default;
+NativeRenderer::~NativeRenderer() {
+    if(std::getenv("SIMS2_PROFILE"))std::cerr<<"[vulkan] cached_targets="<<impl_->targets.size()
+        <<" cached_textures="<<impl_->textures.size()<<" cached_pipelines="<<impl_->pipelines.size()<<'\n';
+}
 void *NativeRenderer::gpu_device() const noexcept { return impl_->device; }
 std::array<unsigned, 2> NativeRenderer::gpu_dimensions() const noexcept {
     return {impl_->scaled_width(), impl_->scaled_height()};

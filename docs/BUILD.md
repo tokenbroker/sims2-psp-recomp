@@ -124,9 +124,20 @@ Run `python profiles/sims2/tools/fetch_dependencies.py --shader-tools` to fetch
 and verify the pinned Khronos glslang compiler, or install the Vulkan SDK
 (providing `glslangValidator` on PATH). Then use
 `build.py "D:\Games\The Sims 2 USA.iso" --graphics VULKAN --workspace out/sims2-windows-vulkan`.
-This builds the SDL/Vulkan shell with the same F1 menu. Use a separate workspace
-from the D3D11 build. Windows defaults to D3D11; switching backends currently
-requires choosing the build, rather than changing a live renderer in F1.
+This builds the SDL/Vulkan shell with the same F1 menu. To install both renderers,
+use `--graphics BOTH` (the Windows setup default) in a separate workspace. It compiles both variants, keeps
+D3D11 at the install root and stages Vulkan with its DLLs under `vulkan/`.
+Setup verifies both runtimes with isolated startup runs. The pinned shader compiler
+is fetched and hash-checked automatically when Vulkan is selected.
+
+In a dual-backend install, choose **F1 > Display > Graphics backend**, Save, quit,
+then launch again. Windows defaults to the installation's primary renderer.
+For recovery, set `SIMS2_GRAPHICS_BACKEND=d3d11` or `vulkan` when launching
+`sims2.exe`; this overrides the saved choice for that launch. A missing optional
+runtime produces an explicit error rather than silently changing renderers.
+Choose `--graphics D3D11` explicitly for a smaller single-backend build.
+`package_local.py --vulkan-probe <path>` can also stage an already compiled
+Vulkan companion beside a D3D11 primary.
 
 ## Source-installer releases
 

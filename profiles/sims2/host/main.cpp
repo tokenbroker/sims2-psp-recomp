@@ -393,6 +393,7 @@ int main(int argc, char **argv) {
             }
             catch (const psprecomp::Error &) {}
         }
+        std::cout.flush(); // Preserve the stop report even if driver teardown stalls.
         if (!execution_error.empty()) { std::cerr << execution_error << '\n'; return 1; }
         if(runtime->stop_reason()=="Window closed")return 0;
         return 3; // Diagnostic/unsupported stops remain distinct from a normal user exit.

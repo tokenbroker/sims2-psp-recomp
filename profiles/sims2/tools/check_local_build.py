@@ -12,10 +12,10 @@ from prepare import prepare
 from setup_process import external_dll_search
 
 
-def check_local_build(iso, install, output):
+def check_local_build(iso, install, output, *, runtime_subdir=""):
     iso, install, output = iso.resolve(), install.resolve(), output.resolve()
     prepare(iso, False, verify_only=True)
-    probe = install / ("sims2_probe.exe" if os.name=="nt" else "sims2_probe")
+    probe = install / runtime_subdir / ("sims2_probe.exe" if os.name=="nt" else "sims2_probe")
     boot = install / "game/PSP_GAME/SYSDIR/BOOT.BIN"
     if not probe.is_file() or not boot.is_file():
         raise RuntimeError("Package must contain its native sims2_probe and prepared BOOT.BIN")
@@ -38,7 +38,7 @@ def check_local_build(iso, install, output):
         try:
             with external_dll_search():
                 result = subprocess.run([str(probe), str(boot), str(iso), "--max-dispatches", "unlimited"],
-                                        cwd=install, env=env, stdout=subprocess.PIPE,
+                                        cwd=probe.parent, env=env, stdout=subprocess.PIPE,
                                         stderr=subprocess.STDOUT, text=True, errors="replace", timeout=180)
         except subprocess.TimeoutExpired as error:
             partial = error.output or b""

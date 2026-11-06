@@ -8,6 +8,7 @@ import argparse
 import shutil
 import subprocess
 import sys
+from runtime_package import stage_companion
 
 profile = Path(__file__).resolve().parents[1]
 root = profile.parents[1]
@@ -22,6 +23,8 @@ parser.add_argument("--output-dir", type=Path, default=output,
                     help="Local launcher folder; contains generated game code")
 parser.add_argument("--work-dir", type=Path, default=work,
                     help="PyInstaller build workspace")
+parser.add_argument("--vulkan-probe", type=Path, help="Optional Vulkan runtime to install alongside a D3D11 primary")
+parser.add_argument("--d3d11-probe", type=Path, help="Optional D3D11 runtime to install alongside a Vulkan primary")
 args = parser.parse_args()
 probe = args.probe.resolve()
 output = args.output_dir.resolve()
@@ -44,6 +47,9 @@ if not desktop.is_file():
 shutil.copy2(desktop, output / desktop.name)
 for name in ("avcodec-61.dll", "avutil-59.dll", "SDL3.dll"):
     shutil.copy2(probe.parent / name, output / name)
+for backend, companion in (("vulkan", args.vulkan_probe), ("d3d11", args.d3d11_probe)):
+    if companion:
+        stage_companion(companion.resolve(), output, backend)
 shutil.copy2(profile / "launcher/recomplauncher.json", output / "recomplauncher.json")
 shutil.copy2(root / "LICENSE", output / "LICENSE.txt")
 shutil.copy2(profile / "THIRD_PARTY.md", output / "THIRD_PARTY.md")
@@ -57,7 +63,7 @@ shutil.copytree(profile / "third_party", output / "third_party", dirs_exist_ok=T
     "Runtime logs: %LOCALAPPDATA%/Sims2PSPRecomp/logs/latest.log\n"
     "Opening movies, Create-A-Sim, the service-station story, Paradise Place arrival, initial estate ghost encounters and house Buy/Design operations have been tested. SDL3 audio and gamepad input are enabled.\n"
     "Encrypted save/load has been tested in the service station and Paradise Place. Later gameplay and a full playthrough remain unverified. Launcher backs up the declared savedata folder.\n"
-    "F1: display/audio settings (Apply or Save); F2: performance overlay. Settings: %LOCALAPPDATA%/Sims2PSPRecomp/settings.ini. Output resolution controls window size; internal resolution (1x-8x) controls 3D detail. FPS caps, HDR controls, anisotropic filtering, custom resolutions, percentage render scale, aspect/camera matching and controller options are available in F1. Presentation caps preserve native PSP game speed (~60 Hz); higher caps do not unlock gameplay FPS.\n"
+    "F1: display/audio settings (Apply or Save); F2: performance overlay. Settings: %LOCALAPPDATA%/Sims2PSPRecomp/settings.ini. Output resolution controls window size; internal resolution (1x-8x) controls 3D detail. FPS caps, HDR controls, anisotropic filtering, custom resolutions, percentage render scale, aspect/camera matching and controller options are available in F1. Presentation caps and experimental 120/240 engine rates are separate. Engine rate and Windows graphics backend changes require Save and restart. Optional Vulkan/D3D11 companion runtimes must be installed.\n"
     "Set SIMS2_MUTE=1 to disable Windows audio playback.\n"
     "Keyboard: arrows=d-pad, Enter=Start, Backspace=Select, X/Z/S/A=Cross/Circle/Triangle/Square, Q/E=L/R, I/J/K/L=stick.\n"
     "SDL3 controllers: left stick=analog, d-pad=d-pad, South/East/West/North=Cross/Circle/Square/Triangle, shoulders=L/R, Menu=Start, View=Select. Hot-plug supported; focus the game window.\n"

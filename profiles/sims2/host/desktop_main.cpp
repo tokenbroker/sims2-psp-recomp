@@ -1,14 +1,13 @@
 #define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
 #include <windows.h>
 #include <shellapi.h>
 #include <filesystem>
 #include <fstream>
 #include <string>
 #include <vector>
-
-#ifndef SIMS2_BACKEND_PATH
-#define SIMS2_BACKEND_PATH "sims2_probe.exe"
-#endif
+#include <cstdlib>
+#include "display/backend_selection.hpp"
 
 namespace {
 std::wstring quote(const std::wstring &value) {
@@ -35,7 +34,23 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR, int) {
     int argc = 0;
     auto argv = CommandLineToArgvW(GetCommandLineW(), &argc);
     if (!argv) return fail(L"Cannot read the launch arguments.");
-    const auto backend = folder / SIMS2_BACKEND_PATH;
+    using sims2::display::GraphicsBackend;
+#if defined(SIMS2_PRIMARY_VULKAN)
+    constexpr auto primary=GraphicsBackend::Vulkan;
+#else
+    constexpr auto primary=GraphicsBackend::D3D11;
+#endif
+    const auto settings=sims2::display::load_host_settings(sims2::display::host_settings_path());
+    auto selected=settings.graphics_backend;
+    // Explicit shortcuts can recover a saved choice without opening the game.
+    if(const auto *choice=std::getenv("SIMS2_GRAPHICS_BACKEND")) {
+        const std::string value(choice);
+        if(value=="vulkan")selected=GraphicsBackend::Vulkan;
+        else if(value=="d3d11")selected=GraphicsBackend::D3D11;
+        else if(value=="auto")selected=GraphicsBackend::Default;
+        else {LocalFree(argv);return fail(L"Unknown graphics backend; use auto, d3d11 or vulkan.");}
+    }
+    const auto backend=sims2::display::selected_runtime(folder,selected,primary);
     std::error_code backend_error;
     const auto prepared = std::filesystem::is_regular_file(backend, backend_error);
     if (argc == 2 && std::wstring(argv[1]) == L"--check") {
@@ -51,7 +66,7 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR, int) {
     }
     if (!prepared) {
         LocalFree(argv);
-        return fail(L"Finish setup in RecompLauncher before starting this game.");
+        return fail(L"The selected graphics runtime is not installed.\n\nInstall both backends with setup --graphics BOTH, or use the Direct3D 11/Vulkan shortcut for an installed runtime.");
     }
     std::wstring command = quote(backend.wstring()) + L" " + quote(argv[1]) + L" " + quote(argv[2])
         + L" --max-dispatches unlimited";
