@@ -11,7 +11,7 @@ secret. Playtesting reports smooth gameplay and resolved audio choppiness.
 
 The project has 41 Windows automated checks covering the framework, kernel/HLE,
 I/O, save crypto, GE/display/audio, controller sampling, GPU rendering, settings
-persistence, input options, HDR conversion and presentation limits. The GitHub Actions workflow uses synthetic host/framework tests on Windows and Linux and does not receive a game image.
+persistence, input options, HDR conversion and presentation limits. The GitHub Actions workflow uses synthetic host/framework tests on Windows and Linux and does not receive a game image. Both jobs passed in the [first hosted run](https://github.com/tokenbroker/sims2-psp-recomp/actions/runs/42169377061) at commit `befbf5c`.
 
 Focused rendering checks include native, 2x/4x/8x and fractional targets;
 texture-matrix menu highlights; framebuffer transfers/feedback; ultrawide and
