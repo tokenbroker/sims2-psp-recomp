@@ -43,6 +43,7 @@ HostSettings validated_settings(HostSettings settings) {
     if(!settings.width || !settings.height)settings.width=settings.height=0;
     else {settings.width=std::clamp(settings.width,480u,7680u);settings.height=std::clamp(settings.height,272u,4320u);}
     settings.fps_cap=std::min(settings.fps_cap,1000u);
+    if(settings.engine_fps!=120u && settings.engine_fps!=240u)settings.engine_fps=0u;
     if(settings.render_percent)settings.render_percent=std::clamp(settings.render_percent,50u,200u);
     if(settings.anisotropy!=0 && settings.anisotropy!=2 && settings.anisotropy!=4 && settings.anisotropy!=8 && settings.anisotropy!=16)settings.anisotropy=0;
     if(unsigned(settings.hdr)>unsigned(HdrMode::On))settings.hdr=HdrMode::Off;
@@ -111,6 +112,7 @@ HostSettings load_host_settings(const std::filesystem::path &path) {
         else if (key == "width") number(value, result.width);
         else if (key == "height") number(value, result.height);
         else if(key=="fps_cap")number(value,result.fps_cap);
+        else if(key=="engine_fps")number(value,result.engine_fps);
         else if(key=="render_percent")number(value,result.render_percent);
         else if(key=="anisotropy")number(value,result.anisotropy);
         else if(key=="paper_white")number(value,result.paper_white);
@@ -153,6 +155,7 @@ bool save_host_settings(const std::filesystem::path &path, HostSettings settings
                << "\nwidth=" << settings.width << "\nheight=" << settings.height
                << "\naspect=" << aspect_name(settings.aspect)
                << "\nrender_percent=" << settings.render_percent << "\nfps_cap=" << settings.fps_cap
+               << "\nengine_fps=" << settings.engine_fps
                << "\nanisotropy=" << settings.anisotropy << "\nhdr=" << (settings.hdr==HdrMode::Auto?"auto":settings.hdr==HdrMode::On?"on":"off")
                << "\npaper_white=" << settings.paper_white << "\npeak_nits=" << settings.peak_nits
                << "\nfilter=" << (settings.filter == OutputFilter::Nearest ? "nearest" : "linear")

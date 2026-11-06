@@ -1,6 +1,8 @@
 // Adapted from bigmission-recomp (MIT). See profile THIRD_PARTY.md.
 #include "display/display.hpp"
 #include "kernel/guest_clock.hpp"
+#include "game_timing.hpp"
+#include <cmath>
 
 #include <cstdlib>
 #include <iostream>
@@ -88,5 +90,42 @@ int main() {
             "framebuffer validation incorrect");
     call(runtime,0x46F186C3u,0x08804F00u);
     require(timing["wait_start"]==3&&timing["wait_vblank"]==1&&timing["get_vcount"]==1&&timing["wait_start_cb"]==1,"Timing observer missed a wait path");
+    require(!sims2::kernel::configure_guest_display(0xFFFFFFFFu) && sims2::kernel::guest_display_hz==0u,
+            "Invalid engine rate changed the clock");
+    for (unsigned hz : {120u, 240u}) {
+        require(sims2::kernel::configure_guest_display(hz), "High-rate clock rejected");
+        for (std::uint64_t n=1; n<=10000; ++n) {
+            const auto time=sims2::kernel::vblank_time_us(n);
+            require(sims2::kernel::vblanks_by(time)==n && sims2::kernel::vblanks_by(time-1)==n-1,
+                    "High-rate vblank boundaries disagree");
+        }
+        require(Display::accumulated_hcount(1000000u)==hz*kLinesPerFrame,
+                "High-rate horizontal count mismatch");
+        psprecomp::Runtime high;
+        sims2::kernel::EarlyKernel high_kernel;
+        high_kernel.install(high,0x08804000u,0x0A000000u);
+        high_kernel.begin_main_thread(high.cpu(),"high",0x20u);
+        Display high_display;
+        register_display(high_display,high_kernel,high);
+        call(high,0x984C27E7u,0x08804000u);
+        require(high_kernel.now_us()==1000000u/hz,"High-rate wait did not advance scheduler");
+        call(high,0xDBA6C4C4u,0x08804000u);
+        require(high.cpu().fpr[0]==static_cast<float>(hz),"Reported display rate mismatch");
+        sims2::install_game_timing(high);
+        high.cpu().set_gpr(31u,0x08805000u);
+        high.register_function(0x08805000u,+[](psprecomp::Runtime &rt,psprecomp::AllegrexContext &){rt.stop("test return");},"test return");
+        high.run(0x08937F00u,4u);
+        require(high.stop_reason()=="test return" && high.cpu().gpr[4]==0x08A2FA14u,
+                "Timestep hook did not preserve its return convention");
+        const auto period=std::bit_cast<float>(high.memory().load32(0x08A2FA5Cu));
+        require(std::abs(period*hz-1.0f)<0.000001f &&
+                std::bit_cast<float>(high.memory().load32(0x08A2FA58u))==hz,
+                "Timestep and reciprocal do not agree");
+    }
+    require(sims2::kernel::configure_guest_display(0u) && sims2::kernel::vblank_time_us(1u)==16683u,
+            "Native timing did not restore");
+    psprecomp::Runtime native;
+    sims2::install_game_timing(native);
+    require(!native.has_function(0x08937F00u),"Native mode installed an unnecessary override");
     return 0;
 }

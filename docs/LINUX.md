@@ -139,7 +139,9 @@ and Xvfb. Those results verify rendering and the shell, not handheld performance
 - Windows D3D11 remains the existing tested gameplay path; Windows Vulkan also
   passes the renderer pixel checks at 1x, 2x, 4x and 8x.
 - Linux HDR is disabled and reported as SDR. Windows HDR controls remain in D3D11.
-- Presentation caps do not unlock the PSP simulation above its native timing.
+- The shared F1 menu includes experimental 120/240 Hz engine rates (Save and
+  restart); presentation caps remain separate. Physical Linux high-FPS validation
+  remains outstanding. See HIGH_FPS_RESEARCH.md for Windows timing checks.
 
 Reference architecture: the [Bustin' Out port](https://github.com/abilliontokens/bustinout-recomp)
 and its XboxXBERecomp SDL/Vulkan runtime. Its Xbox GPU implementation is not used

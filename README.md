@@ -76,11 +76,18 @@ for the session, or Save to persist them. **F2** toggles the performance overlay
 - Fixed 1x-8x internal resolution or 50%-200% output-relative render scaling.
 - Anisotropic filtering, nearest/bilinear output filtering and VSync.
 - Presentation FPS cap, frame-time graph and performance statistics.
+- Experimental 120/240 Hz engine rates, with Native as the default (Save and restart).
 - HDR controls, paper white and peak brightness, with SDR fallback.
 - Master volume/mute, controller deadzone and optional right-stick camera.
 
-**FPS caps preserve native PSP timing. Choosing 120/144/240 does not unlock the
-PSP game engine above its native gameplay rate (approximately 60 Hz).**
+**The presentation cap and engine rate are separate controls.** The latest source
+adds experimental 120/240 Hz engine modes with a game-specific timestep fix.
+Choose **F1 > Display > Engine frame rate**, Save, then restart. Use a matching or
+unlimited presentation cap; VSync may limit output to the monitor's refresh rate.
+Native remains the default. These modes have bounded timing/movement checks,
+not a complete high-FPS playthrough. Unlimited applies to presentation only.
+See [high-FPS investigation](docs/HIGH_FPS_RESEARCH.md). Published v0.2.4 assets
+predate this setting.
 HDR maps the original SDR image into HDR output; Windows HDR must be enabled on
 the current display. Windows defaults to **Direct3D 11**; an optional Vulkan build uses the portable
 SDL3 shell. Native Linux Vulkan builds support Wayland and X11. See

@@ -66,11 +66,15 @@ int main(int argc, char **argv) {
         settings.input = config;
         settings.input.gamepad[Cross] = 2;
         settings.input.controller_labels=2;
+        settings.engine_fps=240u;
         const auto path = std::filesystem::temp_directory_path() / "sims2-input-roundtrip.ini";
         std::string error;
         require(sims2::display::save_host_settings(path, settings, error), "Input settings save");
         require(sims2::display::load_host_settings(path) == settings, "Input settings roundtrip");
         std::filesystem::remove(path);
+        settings.engine_fps=999u;
+        require(sims2::display::validated_settings(settings).engine_fps==0u,
+                "Unsupported engine rate did not fall back to native");
         config.keys[0] = 99999;
         config.gamepad[0] = 99999;
         config.mouse_sensitivity = 99999;

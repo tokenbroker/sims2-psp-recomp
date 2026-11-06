@@ -15,6 +15,7 @@
 #include "rtc/rtc.hpp"
 #include "ge/ge.hpp"
 #include "display/display.hpp"
+#include "game_timing.hpp"
 #if defined(_WIN32) || defined(SIMS2_VULKAN)
 #include "display/native_window.hpp"
 #include "audio/native_audio.hpp"
@@ -84,6 +85,14 @@ int main(int argc, char **argv) {
         if (relocations.invalid || relocations.unsupported)
             throw psprecomp::Error("Relocation failure");
         psprecomp::register_generated_functions(*runtime);
+#if defined(_WIN32) || defined(SIMS2_VULKAN)
+        const auto startup_settings = sims2::display::load_host_settings(sims2::display::host_settings_path());
+        if (!sims2::kernel::configure_guest_display(startup_settings.engine_fps))
+            throw psprecomp::Error("Unsupported engine frame rate");
+        sims2::install_game_timing(*runtime);
+        if (startup_settings.engine_fps)
+            std::cerr << "[timing] Experimental engine rate " << startup_settings.engine_fps << " Hz\n";
+#endif
         sims2::StartupHle startup;
         startup.install(*runtime);
         sims2::kernel::EarlyKernel kernel;
@@ -173,6 +182,8 @@ int main(int argc, char **argv) {
         const auto *timing_path=std::getenv("SIMS2_TIMING_TRACE");
         sims2::display::VblankWaitHook research_wait;
         if(const auto *value=std::getenv("SIMS2_EXPERIMENTAL_RENDER_HZ")){
+            if(sims2::kernel::guest_display_hz)
+                throw psprecomp::Error("Choose the engine rate or the single-wait research experiment, not both");
 #if defined(SIMS2_TIMING_RESEARCH)
             unsigned hz{};const std::string_view text=value;auto parsed=std::from_chars(text.data(),text.data()+text.size(),hz);
             if(parsed.ec!=std::errc{}||parsed.ptr!=text.data()+text.size()||hz<60||hz>240||!timing_path||!std::getenv("SIMS2_MEMSTICK")||!std::getenv("SIMS2_STOP_AFTER_FRAMES"))
@@ -348,7 +359,7 @@ int main(int argc, char **argv) {
 #if defined(_WIN32) || defined(SIMS2_VULKAN)
         renderer.flush(runtime->memory());
         if (window) if (const auto *path = std::getenv("SIMS2_CAPTURE_LAST_BMP")) window->capture(path);
-        if(timing_path){std::ofstream trace(timing_path);trace<<"{\"native_vblank_hz\":59.94005994,\"calls\":[";bool first=true;
+        if(timing_path){std::ofstream trace(timing_path);trace<<"{\"native_vblank_hz\":59.94005994,\"active_display_hz\":"<<sims2::kernel::guest_display_frequency()<<",\"calls\":[";bool first=true;
             for(const auto &[key,count]:timing_calls){if(!first)trace<<',';first=false;trace<<"{\"kind\":\""<<key.first<<"\",\"return_pc\":\""<<psprecomp::hex32(key.second)<<"\",\"count\":"<<count<<'}';}trace<<"]}\n";}
         std::cout << "GPU draws rendered: " << renderer.draws() << '\n';
 #endif

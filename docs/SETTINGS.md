@@ -16,6 +16,7 @@ saved preferences remain in effect until you choose Defaults and Save. F2 toggle
 | Anisotropic filtering | Game default or 2x/4x/8x/16x, applied to filtered 3D textures; unfiltered UI is preserved. |
 | Output filtering | Nearest or bilinear. |
 | FPS cap | Unlimited, 30, 60, 72, 120, 144, 165, 240 presentation caps. |
+| Engine frame rate | Native (default), experimental 120 or 240. Save and restart to apply. |
 | Performance | FPS, frame-time graph/range/average, output/internal sizes, VSync/cap and HDR status. |
 | HDR | Off/Auto/On, paper white, peak brightness and active/fallback status. |
 | Audio | Master volume and mute. |
@@ -24,11 +25,17 @@ saved preferences remain in effect until you choose Defaults and Save. F2 toggle
 
 ## FPS and game speed
 
-Presentation caps do not change the PSP simulation or audio clock. Gameplay runs
-at its native rate (approximately 60 Hz); movies may update at 30 Hz. A 30 FPS
-presentation cap reduces display updates without slowing the game. Selecting a
-cap above the native rate does **not** unlock higher engine FPS. A true engine
-FPS unlock requires separate game-specific timing work.
+Presentation caps alone do not change the PSP simulation or audio clock. Native
+mode runs at approximately 60 Hz; movies may update at 30 Hz. A 30 FPS cap
+reduces presentation updates without slowing native gameplay.
+
+The separate experimental engine setting changes the display cadence and the
+game's render-derived timestep together. It requires Save and restart, preserving
+existing scheduler deadlines during play. F2 reports the active engine rate;
+F1 shows when a saved choice needs a restart. Higher rates require more CPU/GPU
+work; reduce internal resolution if necessary. VSync and the presentation cap
+still bound visible FPS. There is no unlimited engine mode. Use Native if a
+gameplay or audio issue appears. See HIGH_FPS_RESEARCH.md for tested scope.
 
 ## Resolution and image detail
 

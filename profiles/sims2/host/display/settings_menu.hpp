@@ -1,6 +1,7 @@
 #pragma once
 #include "display/settings_overlay.hpp"
 #include "display/frame_history.hpp"
+#include "kernel/guest_clock.hpp"
 #include <algorithm>
 #include <array>
 #include <cmath>
@@ -65,6 +66,8 @@ struct SettingsMenu : FrameHistory {
                         settings_ui::render_dimension(272 * factor), aspect_name(current.aspect).data());
             ImGui::Text("VSync %s | cap %u | %s", current.vsync ? "On" : "Off", current.fps_cap,
                         hdr_active ? "HDR" : "SDR");
+            ImGui::Text("Engine %.2f Hz%s", kernel::guest_display_frequency(),
+                        kernel::guest_display_hz ? " (experimental)" : "");
             ImGui::Text("%.2f - %.2f ms", lo, hi);
             ImGui::PlotLines("##times", times.data(), int(count),
                              count == times.size() ? int(sample % times.size()) : 0, nullptr, 0,
@@ -181,8 +184,17 @@ struct SettingsMenu : FrameHistory {
                             }
                             ImGui::EndCombo();
                         }
-                        note("Game speed and audio stay at the native rate (~60 Hz). Higher caps do not "
-                             "unlock gameplay FPS.");
+                        note("Limits presentation. Select an engine rate below to render additional game frames.");
+                        row("Engine frame rate");
+                        int engine = draft.engine_fps == 240u ? 2 : draft.engine_fps == 120u ? 1 : 0;
+                        if (ImGui::Combo("##engine_fps", &engine,
+                                         "Native (~60)\0" "120 (experimental)\0" "240 (experimental)\0"))
+                            draft.engine_fps = engine == 2 ? 240u : engine == 1 ? 120u : 0u;
+                        note("Save and restart to apply. High rates need more GPU/CPU power. "
+                             "Experimental: use Native if gameplay or audio behaves incorrectly. "
+                             "VSync and the presentation cap can limit visible FPS.");
+                        if(draft.engine_fps!=kernel::guest_display_hz)
+                            note("Engine rate change pending: Save, close the game, then launch again.");
                         ImGui::BeginDisabled(!hdr_supported);
                         row("HDR");
                         int hdr = int(draft.hdr);

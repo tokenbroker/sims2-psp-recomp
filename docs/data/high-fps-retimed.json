@@ -1,0 +1,181 @@
+{
+  "scope": "Muted headless timing and short-walk checks, not physical monitor FPS or audible playback validation",
+  "source_base": "bd962a1",
+  "input_script": "0:-;30:CROSS;30.1:-;42:STICKRIGHT;42.2:-",
+  "runtime_sha256": "2e32f98aed5412e79612333fb3c9ec431b28c887a060ea2720717c125b8658e5",
+  "capture_runtime": "Candidate with private RAM/capture instrumentation; raw outputs excluded from publication",
+  "save_isolation": "Independent copies of identical saved game",
+  "cases": [
+    {
+      "engine_fps_setting": 0,
+      "steady_requests_per_guest_second": 59.94005994005994,
+      "clock_samples": {
+        "40": {
+          "hour": 19,
+          "minute": 47,
+          "delta": 0.016683334484696388
+        },
+        "41": {
+          "hour": 19,
+          "minute": 48,
+          "delta": 0.016683334484696388
+        },
+        "42": {
+          "hour": 19,
+          "minute": 49,
+          "delta": 0.016683334484696388
+        },
+        "43": {
+          "hour": 19,
+          "minute": 50,
+          "delta": 0.016683334484696388
+        },
+        "44": {
+          "hour": 19,
+          "minute": 51,
+          "delta": 0.016683334484696388
+        },
+        "45": {
+          "hour": 19,
+          "minute": 52,
+          "delta": 0.016683334484696388
+        }
+      },
+      "game_minutes_advanced": 5,
+      "audio_interval_us": 5005000,
+      "active_audio_channels": {
+        "4": {
+          "samples": 221184,
+          "samples_per_guest_second": 44192.607392607395
+        },
+        "6": {
+          "samples": 220160,
+          "samples_per_guest_second": 43988.01198801199
+        }
+      },
+      "movie_frames": 429
+    },
+    {
+      "engine_fps_setting": 120,
+      "steady_requests_per_guest_second": 120.0,
+      "clock_samples": {
+        "40": {
+          "hour": 19,
+          "minute": 48,
+          "delta": 0.008333333767950535
+        },
+        "41": {
+          "hour": 19,
+          "minute": 49,
+          "delta": 0.008333333767950535
+        },
+        "42": {
+          "hour": 19,
+          "minute": 50,
+          "delta": 0.008333333767950535
+        },
+        "43": {
+          "hour": 19,
+          "minute": 51,
+          "delta": 0.008333333767950535
+        },
+        "44": {
+          "hour": 19,
+          "minute": 52,
+          "delta": 0.008333333767950535
+        },
+        "45": {
+          "hour": 19,
+          "minute": 53,
+          "delta": 0.008333333767950535
+        }
+      },
+      "game_minutes_advanced": 5,
+      "audio_interval_us": 5000000,
+      "active_audio_channels": {
+        "4": {
+          "samples": 221184,
+          "samples_per_guest_second": 44236.8
+        },
+        "6": {
+          "samples": 221184,
+          "samples_per_guest_second": 44236.8
+        }
+      },
+      "movie_frames": 429
+    },
+    {
+      "engine_fps_setting": 240,
+      "steady_requests_per_guest_second": 240.0,
+      "clock_samples": {
+        "40": {
+          "hour": 19,
+          "minute": 49,
+          "delta": 0.004166666883975267
+        },
+        "41": {
+          "hour": 19,
+          "minute": 50,
+          "delta": 0.004166666883975267
+        },
+        "42": {
+          "hour": 19,
+          "minute": 51,
+          "delta": 0.004166666883975267
+        },
+        "43": {
+          "hour": 19,
+          "minute": 52,
+          "delta": 0.004166666883975267
+        },
+        "44": {
+          "hour": 19,
+          "minute": 53,
+          "delta": 0.004166666883975267
+        },
+        "45": {
+          "hour": 19,
+          "minute": 54,
+          "delta": 0.004166666883975267
+        }
+      },
+      "game_minutes_advanced": 5,
+      "audio_interval_us": 5000000,
+      "active_audio_channels": {
+        "4": {
+          "samples": 221184,
+          "samples_per_guest_second": 44236.8
+        },
+        "6": {
+          "samples": 221184,
+          "samples_per_guest_second": 44236.8
+        }
+      },
+      "movie_frames": 429
+    }
+  ],
+  "paced_audio_smoke": {
+    "runtime_sha256": "2611b72bf75931fffe718e1c6add01ce0ee2badaeb8e5b911855f4bef8b17aa1",
+    "cases": [
+      {
+        "engine_fps": 120,
+        "diagnostic_exit": 3,
+        "wall_seconds_including_startup": 48.985,
+        "guest_us": 45000000,
+        "sdl_frames_submitted": 3901056,
+        "audio_driver": "SDL dummy; no audible output",
+        "concurrent_linux_build": false
+      },
+      {
+        "engine_fps": 240,
+        "diagnostic_exit": 3,
+        "wall_seconds_including_startup": 71.156,
+        "guest_us": 45000000,
+        "sdl_frames_submitted": 3933824,
+        "audio_driver": "SDL dummy; no audible output",
+        "concurrent_linux_build": true
+      }
+    ],
+    "limitation": "Pacing lateness observed; not proof of real-time high-FPS gameplay or isolated hardware benchmark"
+  }
+}

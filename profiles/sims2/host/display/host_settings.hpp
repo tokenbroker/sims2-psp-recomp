@@ -19,6 +19,7 @@ struct HostSettings {
     unsigned render_scale = 4;
     unsigned render_percent = 0; // zero selects the fixed PSP multiplier
     unsigned fps_cap = 0; // presentation only; native guest timing is unchanged
+    unsigned engine_fps = 0; // 0 = native; experimental 120/240, restart required
     unsigned anisotropy = 0;
     HdrMode hdr = HdrMode::Off;
     unsigned paper_white = 200, peak_nits = 0;

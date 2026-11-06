@@ -37,7 +37,8 @@ reproduction steps and checked with focused regressions.
   exclusive display switching need user hardware checks.
 - Original PSP save interchange is not established.
 - Fonts use Windows Arial or Linux FreeType/fontconfig substitutes rather than Sony PGF typography.
-- FPS caps do not unlock the PSP game engine above its native timing.
+- Presentation caps and engine rate are separate. The latest source adds opt-in,
+  experimental 120/240 Hz engine modes; full high-FPS gameplay remains unverified.
 - Xbox-specific cheat toggles and a replacement vector HUD are not implemented.
 
 Report reproducible issues through the repository issue tracker. Include the

@@ -60,11 +60,15 @@ std::uint32_t Display::vcount(std::uint64_t now_us) noexcept {
 
 bool Display::in_vblank(std::uint64_t now_us) noexcept {
     const auto count = kernel::vblanks_by(now_us);
-    return count != 0u && now_us - kernel::vblank_time_us(count) < kVblankDurationUs;
+    const auto duration = kernel::guest_display_hz ?
+        kVblankDurationUs * 60000u / (1001u * kernel::guest_display_hz) : kVblankDurationUs;
+    return count != 0u && now_us - kernel::vblank_time_us(count) < duration;
 }
 
 std::uint32_t Display::accumulated_hcount(std::uint64_t now_us) noexcept {
-    return static_cast<std::uint32_t>(now_us * kLinesPerFrame * 60u / 1001000u);
+    return static_cast<std::uint32_t>(kernel::guest_display_hz ?
+        now_us * kLinesPerFrame * kernel::guest_display_hz / 1000000u :
+        now_us * kLinesPerFrame * 60u / 1001000u);
 }
 
 std::uint64_t Display::next_vblank_start_us(std::uint64_t now_us) noexcept {
@@ -74,7 +78,7 @@ std::uint64_t Display::next_vblank_start_us(std::uint64_t now_us) noexcept {
 void register_display(Display &display, kernel::EarlyKernel &kernel, psprecomp::Runtime &runtime,
                       VcountHook vcount_hook, VblankWaitHook vblank_wait_hook, TimingObserver timing) {
     runtime.register_hle("sceDisplay", 0xDBA6C4C4u,
-        [](psprecomp::Runtime &, psprecomp::AllegrexContext &ctx) { ctx.fpr[0] = 60000.0f / 1001.0f; });
+        [](psprecomp::Runtime &, psprecomp::AllegrexContext &ctx) { ctx.fpr[0] = kernel::guest_display_frequency(); });
     runtime.register_hle("sceDisplay", 0x0E20F177u,  // sceDisplaySetMode
         [&display](psprecomp::Runtime &, psprecomp::AllegrexContext &ctx) {
             ctx.set_gpr(2u, static_cast<std::uint32_t>(display.set_mode(ctx.gpr[4], ctx.gpr[5], ctx.gpr[6])));
