@@ -3,6 +3,7 @@
 #include <windows.h>
 #include "display/native_window.hpp"
 #include "display/framebuffer_pixels.hpp"
+#include "display/save_slot_label.hpp"
 #include "display/settings_overlay.hpp"
 #include "display/presentation_limiter.hpp"
 #include "gpu/native_renderer.hpp"
@@ -218,7 +219,7 @@ std::optional<std::string> NativeWindow::select_savedata(std::uint32_t mode, con
     if (!impl_->window) throw psprecomp::Error("Savedata selection requires a visible window");
     const auto verb = mode == 2u || mode == 4u ? "Load" : mode == 6u ? "Delete" : "Save to";
     for (const auto &slot : slots) {
-        const auto message = std::string(verb) + " save slot \"" + slot + "\"?\n\n" +
+        const auto message = std::string(verb) + " save slot \"" + std::string(save_slot_label(slot)) + "\"?\n\n" +
             (mode == 6u ? "This removes the saved game.\n" : mode == 3u || mode == 5u ? "Existing data in this slot will be replaced.\n" : "") +
             "Yes selects this slot. No checks the next slot. Cancel returns to the game.\n\n"
             "Controller: bound Cross = Yes, Square = No, Circle = Cancel.";

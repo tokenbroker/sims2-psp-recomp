@@ -4,6 +4,7 @@
 #include "display/presentation_limiter.hpp"
 #include "display/settings_menu.hpp"
 #include "display/framebuffer_pixels.hpp"
+#include "display/save_slot_label.hpp"
 #include "gpu/native_renderer.hpp"
 #include "psprecomp/common.hpp"
 #include <SDL3/SDL.h>
@@ -124,6 +125,7 @@ struct NativeWindow::Impl : SettingsMenu {
         ImGui::SetNextWindowSize({std::min(580.f, float(width) - 24), 0}, ImGuiCond_Appearing);
         if (ImGui::Begin("Save data", nullptr,
                          ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoCollapse)) {
+            if(ImGui::IsWindowAppearing())ImGui::SetNavCursorVisible(true);
             ImGui::TextUnformatted(slot_mode == 2 || slot_mode == 4 ? "Choose a save to load"
                                    : slot_mode == 6                 ? "Choose a save to delete"
                                                                     : "Choose a save slot");
@@ -131,11 +133,16 @@ struct NativeWindow::Impl : SettingsMenu {
                 ImGui::TextWrapped("Selecting a slot deletes its saved game.");
             else if (slot_mode == 3 || slot_mode == 5)
                 ImGui::TextWrapped("Selecting an existing slot replaces its saved game.");
-            for (auto &slot : slots)
-                if (ImGui::Button(slot.c_str(), {-1, 0})) {
+            for (unsigned i=0;i<slots.size();++i) {
+                const auto &slot=slots[i];
+                ImGui::PushID(int(i));
+                if (ImGui::Button(save_slot_label(slot).data(), {-1, 0})) {
                     slot_choice = slot;
                     slot_done = true;
                 }
+                if(i==0)ImGui::SetItemDefaultFocus();
+                ImGui::PopID();
+            }
             if (ImGui::Button("Cancel", {-1, 0}) || ImGui::IsKeyPressed(ImGuiKey_Escape) ||
                 ImGui::IsKeyPressed(ImGuiKey_GamepadFaceRight)) {
                 slot_choice.reset();

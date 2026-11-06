@@ -1,6 +1,7 @@
 #include "display/native_window.hpp"
 #include "gpu/native_renderer.hpp"
 #include "ctrl/native_gamepad.hpp"
+#include "display/save_slot_label.hpp"
 #include <SDL3/SDL.h>
 #include <chrono>
 #include <cstdlib>
@@ -25,6 +26,12 @@ Uint32 SDLCALL close_menu(void *, SDL_TimerID, Uint32) {
 Uint32 SDLCALL close_dialog(void *, SDL_TimerID, Uint32) {
     key(SDL_SCANCODE_ESCAPE, SDLK_ESCAPE);
     return 0;
+}
+Uint32 SDLCALL choose_default(void *, SDL_TimerID, Uint32) {
+    key(SDL_SCANCODE_RETURN,SDLK_RETURN);
+    SDL_Event released{};released.type=SDL_EVENT_KEY_UP;released.key.windowID=window_id;
+    released.key.scancode=SDL_SCANCODE_RETURN;released.key.key=SDLK_RETURN;SDL_PushEvent(&released);
+    return 100; // Retry after navigation initializes, including a slow first GPU frame.
 }
 } // namespace
 int main() {
@@ -81,6 +88,14 @@ int main() {
         require(std::chrono::steady_clock::now() - start >= std::chrono::milliseconds(150),
                 "F1 did not pause the game");
         require(window.presented_frames() > 3, "F1 did not render");
+        require(sims2::display::save_slot_label("")=="Default save","Default slot has no visible label");
+        const auto choose_timer=SDL_AddTimer(100,choose_default,nullptr);
+        auto selected=window.select_savedata(2,{""});
+        SDL_RemoveTimer(choose_timer);
+        require(selected.has_value() && selected->empty(),"Default save label changed the actual slot name");
+        SDL_Event released{};released.type=SDL_EVENT_KEY_UP;released.key.windowID=window_id;
+        released.key.scancode=SDL_SCANCODE_RETURN;released.key.key=SDLK_RETURN;SDL_PushEvent(&released);
+        window.present(memory,frame,55001,controller);
         SDL_AddTimer(250, close_dialog, nullptr);
         require(!window.select_savedata(2, {"TEST_SLOT"}), "Save selector cancellation failed");
         SDL_Event close{};

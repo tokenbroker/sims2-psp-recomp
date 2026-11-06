@@ -24,6 +24,11 @@ saved preferences remain in effect until you choose Defaults and Save. F2 toggle
 | Controller | Deadzone, right-stick activation/inversion, button rebinding and Xbox/PlayStation/Nintendo/physical labels. |
 | Keyboard/mouse | Classic/WASD presets, individual bindings, RMB camera rotation, wheel mapping, optional repeat filtering and input hints. |
 
+## Save/load picker
+
+The save/load picker displays **Default save** for the game's unnamed PSP slot.
+This is a display label; its original slot identifier and save folder are preserved.
+
 ## FPS and game speed
 
 Presentation caps alone do not change the PSP simulation or audio clock. Native
