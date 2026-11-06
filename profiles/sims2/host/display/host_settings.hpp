@@ -1,5 +1,6 @@
 #pragma once
 #include <cstdint>
+#include "ctrl/input_config.hpp"
 #include <filesystem>
 #include <string>
 #include <string_view>
@@ -10,6 +11,7 @@ enum class AspectMode { Native, Widescreen, Stretch, Ultrawide, FourThree, Sixte
 enum class HdrMode { Off, Auto, On };
 enum class OutputFilter { Nearest, Linear };
 struct HostSettings {
+    ctrl::InputConfig input;
     WindowMode mode = WindowMode::Windowed;
     unsigned width = 1920, height = 1080;
     AspectMode aspect = AspectMode::Native;

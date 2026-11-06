@@ -39,6 +39,7 @@ float effective_render_scale(const HostSettings &settings,unsigned output_height
     return settings.render_percent?std::clamp(float(output_height)*settings.render_percent/(100*272),0.5f,16.0f):float(settings.render_scale);
 }
 HostSettings validated_settings(HostSettings settings) {
+    settings.input=ctrl::validated_input(settings.input);
     if(!settings.width || !settings.height)settings.width=settings.height=0;
     else {settings.width=std::clamp(settings.width,480u,7680u);settings.height=std::clamp(settings.height,272u,4320u);}
     settings.fps_cap=std::min(settings.fps_cap,1000u);
@@ -91,7 +92,23 @@ HostSettings load_host_settings(const std::filesystem::path &path) {
         const auto equals = text.find('=');
         if (equals == text.npos) continue;
         const auto key = trim(text.substr(0, equals)), value = trim(text.substr(equals + 1));
-        if (key == "width") number(value, result.width);
+        if(key.starts_with("key_")||key.starts_with("pad_")){
+            unsigned index{};if(number(key.substr(4),index)){
+                if(key.starts_with("key_")&&index<result.input.keys.size())number(value,result.input.keys[index]);
+                if(key.starts_with("pad_")&&index<result.input.gamepad.size())number(value,result.input.gamepad[index]);
+            }
+        }
+        else if(key=="controller_labels")number(value,result.input.controller_labels);
+        else if(key=="camera_threshold")number(value,result.input.camera_threshold);
+        else if(key=="mouse_sensitivity")number(value,result.input.mouse_sensitivity);
+        else if(key=="mouse_pulse_ms")number(value,result.input.mouse_pulse_ms);
+        else if(key=="menu_repeat_ms")number(value,result.input.menu_repeat_ms);
+        else if(key=="wheel_up")number(value,result.input.wheel_up);
+        else if(key=="wheel_down")number(value,result.input.wheel_down);
+        else if(key=="mouse_camera")boolean(value,result.input.mouse_camera);
+        else if(key=="invert_camera")boolean(value,result.input.invert_camera);
+        else if(key=="input_hints")boolean(value,result.input.input_hints);
+        else if (key == "width") number(value, result.width);
         else if (key == "height") number(value, result.height);
         else if(key=="fps_cap")number(value,result.fps_cap);
         else if(key=="render_percent")number(value,result.render_percent);
@@ -143,6 +160,13 @@ bool save_host_settings(const std::filesystem::path &path, HostSettings settings
                << "\nstick_deadzone=" << settings.stick_deadzone << "\nright_stick_camera=" << settings.right_stick_camera
                << "\nvsync=" << settings.vsync << "\nvolume=" << settings.volume
                << "\nmuted=" << settings.muted << "\nshow_performance=" << settings.show_performance << '\n';
+        for(unsigned i=0;i<settings.input.keys.size();++i)output<<"key_"<<i<<'='<<settings.input.keys[i]<<'\n';
+        for(unsigned i=0;i<settings.input.gamepad.size();++i)output<<"pad_"<<i<<'='<<settings.input.gamepad[i]<<'\n';
+        output<<"controller_labels="<<settings.input.controller_labels<<"\ncamera_threshold="<<settings.input.camera_threshold<<"\nmouse_sensitivity="<<settings.input.mouse_sensitivity
+            <<"\nmouse_pulse_ms="<<settings.input.mouse_pulse_ms<<"\nmenu_repeat_ms="<<settings.input.menu_repeat_ms
+            <<"\nwheel_up="<<settings.input.wheel_up<<"\nwheel_down="<<settings.input.wheel_down
+            <<"\nmouse_camera="<<settings.input.mouse_camera<<"\ninvert_camera="<<settings.input.invert_camera
+            <<"\ninput_hints="<<settings.input.input_hints<<'\n';
         output.close();
         if (!output) throw std::runtime_error("Cannot write settings file");
 #if defined(_WIN32)

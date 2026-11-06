@@ -69,7 +69,8 @@ private:
 using VcountHook = std::function<void(psprecomp::Runtime &, psprecomp::AllegrexContext &)>;
 using VblankWaitHook = std::function<std::optional<std::uint64_t>(psprecomp::Runtime &,
     const psprecomp::AllegrexContext &, std::uint64_t now_us)>;
+using TimingObserver = std::function<void(const char *, const psprecomp::AllegrexContext &, std::uint64_t)>;
 void register_display(Display &display, kernel::EarlyKernel &kernel, psprecomp::Runtime &runtime,
-                      VcountHook vcount_hook = {}, VblankWaitHook vblank_wait_hook = {});
+                      VcountHook vcount_hook = {}, VblankWaitHook vblank_wait_hook = {}, TimingObserver timing = {});
 
 } // namespace sims2::display

@@ -72,7 +72,7 @@ std::uint64_t Display::next_vblank_start_us(std::uint64_t now_us) noexcept {
 }
 
 void register_display(Display &display, kernel::EarlyKernel &kernel, psprecomp::Runtime &runtime,
-                      VcountHook vcount_hook, VblankWaitHook vblank_wait_hook) {
+                      VcountHook vcount_hook, VblankWaitHook vblank_wait_hook, TimingObserver timing) {
     runtime.register_hle("sceDisplay", 0xDBA6C4C4u,
         [](psprecomp::Runtime &, psprecomp::AllegrexContext &ctx) { ctx.fpr[0] = 60000.0f / 1001.0f; });
     runtime.register_hle("sceDisplay", 0x0E20F177u,  // sceDisplaySetMode
@@ -97,7 +97,8 @@ void register_display(Display &display, kernel::EarlyKernel &kernel, psprecomp::
             ctx.set_gpr(2u, 0u);
         });
     runtime.register_hle("sceDisplay", 0x9C6EAAD7u,  // sceDisplayGetVcount
-        [&kernel, hook = std::move(vcount_hook)](psprecomp::Runtime &rt, psprecomp::AllegrexContext &ctx) {
+        [&kernel, timing, hook = std::move(vcount_hook)](psprecomp::Runtime &rt, psprecomp::AllegrexContext &ctx) {
+            if(timing)timing("get_vcount",ctx,kernel.now_us());
             ctx.set_gpr(2u, Display::vcount(kernel.now_us()));
             if (hook) hook(rt, ctx);
         });
@@ -109,19 +110,22 @@ void register_display(Display &display, kernel::EarlyKernel &kernel, psprecomp::
         [&kernel](psprecomp::Runtime &, psprecomp::AllegrexContext &ctx) {
             ctx.set_gpr(2u, Display::accumulated_hcount(kernel.now_us()));
         });
-    const auto wait_vblank_start = [&kernel](psprecomp::Runtime &, psprecomp::AllegrexContext &ctx) {
+    const auto wait_vblank_start = [&kernel, timing](psprecomp::Runtime &, psprecomp::AllegrexContext &ctx) {
+        if(timing)timing("wait_start",ctx,kernel.now_us());
         kernel.wait_current_until(ctx, Display::next_vblank_start_us(kernel.now_us()), {}, {kernel::EarlyKernel::WaitType::Vblank});
     };
     runtime.register_hle("sceDisplay", 0x984C27E7u, wait_vblank_start);  // sceDisplayWaitVblankStart
     runtime.register_hle("sceDisplay", 0x46F186C3u,  // sceDisplayWaitVblankStartCB
-        [&kernel, hook = std::move(vblank_wait_hook)](psprecomp::Runtime &rt, psprecomp::AllegrexContext &ctx) {
+        [&kernel, timing, hook = std::move(vblank_wait_hook)](psprecomp::Runtime &rt, psprecomp::AllegrexContext &ctx) {
+            if(timing)timing("wait_start_cb",ctx,kernel.now_us());
             const auto deadline = hook ? hook(rt, ctx, kernel.now_us()) : std::nullopt;
             if (rt.stopped()) return;
             kernel.block_current(ctx, {"vblank", deadline.value_or(Display::next_vblank_start_us(kernel.now_us())),
                 0u, {}, 0, true, {kernel::EarlyKernel::WaitType::Vblank}});
         });
     runtime.register_hle("sceDisplay", 0x36CDFADEu,  // sceDisplayWaitVblank: returns at once inside vblank
-        [&kernel](psprecomp::Runtime &, psprecomp::AllegrexContext &ctx) {
+        [&kernel, timing](psprecomp::Runtime &, psprecomp::AllegrexContext &ctx) {
+            if(timing)timing("wait_vblank",ctx,kernel.now_us());
             if (Display::in_vblank(kernel.now_us())) { ctx.set_gpr(2u, 0u); return; }
             kernel.wait_current_until(ctx, Display::next_vblank_start_us(kernel.now_us()), {}, {kernel::EarlyKernel::WaitType::Vblank});
         });

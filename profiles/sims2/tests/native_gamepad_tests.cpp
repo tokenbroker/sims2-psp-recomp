@@ -22,6 +22,9 @@ int main() {
         SDL_SetJoystickVirtualAxis(joystick,SDL_GAMEPAD_AXIS_LEFTX,32767);
         pad=input.sample(true);
         require((pad.buttons&kButtonCross)!=0 && pad.lx==255,"Virtual hot-plug and input");
+        InputConfig remap;remap.gamepad[Circle]=SDL_GAMEPAD_BUTTON_SOUTH;remap.gamepad[Cross]=SDL_GAMEPAD_BUTTON_EAST;
+        input.set_input_options(remap);pad=input.sample(true);require((pad.buttons&kButtonCircle)&&!(pad.buttons&kButtonCross),"Controller rebind ignored");
+        input.set_input_options(InputConfig{});
         input.set_options(40,true);SDL_SetJoystickVirtualAxis(joystick,SDL_GAMEPAD_AXIS_RIGHTX,32767);
         pad=input.sample(true);require((pad.buttons&kButtonR)!=0,"Right stick camera mapping");
         input.set_options(40,false);pad=input.sample(true);require((pad.buttons&kButtonR)==0,"Right stick camera setting ignored");

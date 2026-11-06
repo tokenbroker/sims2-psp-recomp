@@ -7,6 +7,7 @@
 #include "display/presentation_limiter.hpp"
 #include "gpu/native_renderer.hpp"
 #include "ctrl/native_gamepad.hpp"
+#include "ctrl/host_input.hpp"
 #include "psprecomp/common.hpp"
 #include <chrono>
 #include <thread>
@@ -19,6 +20,8 @@
 
 namespace sims2::display {
 struct NativeWindow::Impl {
+    ctrl::HostInput host_input;
+    float wheel{};
     HWND window{};
     std::unique_ptr<ctrl::NativeGamepad> gamepad;
     std::unique_ptr<SettingsOverlay> overlay;
@@ -92,6 +95,7 @@ struct NativeWindow::Impl {
             limits->ptMinTrackSize={480,272};
             return 0;
         }
+        if(self && message==WM_MOUSEWHEEL)self->wheel+=float(GET_WHEEL_DELTA_WPARAM(w))/WHEEL_DELTA;
         if (self && message == WM_CLOSE) { self->closed = true; return 0; }
         if (self && self->overlay) {
             if (message == WM_KEYDOWN && !(l & (1ll << 30))) {
@@ -167,7 +171,8 @@ void NativeWindow::set_audio_control(std::function<void(float)> control) {
 }
 void NativeWindow::apply_settings(HostSettings settings) {
     auto &p=*impl_;settings=validated_settings(settings);const auto previous=p.settings;
-    if(p.gamepad)p.gamepad->set_options(settings.stick_deadzone,settings.right_stick_camera);
+    if(p.gamepad){p.gamepad->set_options(settings.stick_deadzone,settings.right_stick_camera);p.gamepad->set_input_options(settings.input);}
+    p.host_input.release();
     if(p.renderer){p.renderer->set_anisotropy(settings.anisotropy);if(!settings.render_percent)p.renderer->set_render_scale(float(settings.render_scale));}
     if(settings.fps_cap!=previous.fps_cap)p.limiter.reset();
     if(p.overlay && (settings.mode!=previous.mode || settings.width!=previous.width || settings.height!=previous.height))p.overlay->leave_fullscreen();
@@ -208,13 +213,14 @@ void NativeWindow::capture(const std::string &path) const {
     if (!out) throw psprecomp::Error("Cannot write framebuffer capture");
 }
 std::optional<std::string> NativeWindow::select_savedata(std::uint32_t mode, const std::vector<std::string> &slots) {
+    impl_->host_input.release();impl_->wheel=0;
     if (!impl_->window) throw psprecomp::Error("Savedata selection requires a visible window");
     const auto verb = mode == 2u || mode == 4u ? "Load" : mode == 6u ? "Delete" : "Save to";
     for (const auto &slot : slots) {
         const auto message = std::string(verb) + " save slot \"" + slot + "\"?\n\n" +
             (mode == 6u ? "This removes the saved game.\n" : mode == 3u || mode == 5u ? "Existing data in this slot will be replaced.\n" : "") +
             "Yes selects this slot. No checks the next slot. Cancel returns to the game.\n\n"
-            "Controller: Cross / South = Yes, Square / West = No, Circle / East = Cancel.";
+            "Controller: bound Cross = Yes, Square = No, Circle = Cancel.";
         impl_->dialog_buttons = impl_->gamepad->sample(true).buttons;
         impl_->dialog_released = impl_->dialog_buttons == 0;
         impl_->dialog_error = {};
@@ -242,16 +248,15 @@ bool NativeWindow::present(const psprecomp::GuestMemory &memory, const Display::
     if (p.gamepad) pad = p.gamepad->sample(!settings_open && p.window && GetForegroundWindow() == p.window);
     p.dialog_consumed &= pad.buttons;
     pad.buttons &= ~p.dialog_consumed;
-    if (!settings_open && p.window && GetForegroundWindow() == p.window) {
-        const auto key = [&](int code) { const bool held=(GetAsyncKeyState(code)&0x8000)!=0;if(!held)p.suppressed_keys[code]=false;return held&&!p.suppressed_keys[code]; };
-        const std::pair<int, std::uint32_t> keys[]{{VK_RETURN, ctrl::kButtonStart}, {VK_BACK, ctrl::kButtonSelect},
-            {VK_UP, ctrl::kButtonUp}, {VK_DOWN, ctrl::kButtonDown}, {VK_LEFT, ctrl::kButtonLeft}, {VK_RIGHT, ctrl::kButtonRight},
-            {'X', ctrl::kButtonCross}, {'Z', ctrl::kButtonCircle}, {'S', ctrl::kButtonTriangle}, {'A', ctrl::kButtonSquare},
-            {'Q', ctrl::kButtonL}, {'E', ctrl::kButtonR}};
-        for (const auto &[code, bit] : keys) if (key(code)) pad.buttons |= bit;
-        if (key('J') || key('L')) pad.lx = key('J') ? 0u : 255u;
-        if (key('I') || key('K')) pad.ly = key('I') ? 0u : 255u;
-    }
+    auto key=[&](unsigned code){
+        int vk=int(code);if(code>=ctrl::Enter&&code<=ctrl::ArrowRight){constexpr int special[]{VK_RETURN,VK_BACK,VK_ESCAPE,VK_TAB,VK_UP,VK_DOWN,VK_LEFT,VK_RIGHT};vk=special[code-ctrl::Enter];}
+        if(!ctrl::valid_key(code)||!code)return false;
+        const bool held=(GetAsyncKeyState(vk)&0x8000)!=0;if(!held)p.suppressed_keys[vk]=false;return held&&!p.suppressed_keys[vk];
+    };
+    POINT position{};GetCursorPos(&position);ScreenToClient(p.window,&position);
+    ctrl::MouseSnapshot mouse{float(position.x),float(position.y),p.wheel,(GetAsyncKeyState(VK_RBUTTON)&0x8000)!=0};p.wheel=0;
+    const auto host_us=std::uint64_t(std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now().time_since_epoch()).count());
+    pad=p.host_input.sample(p.settings.input,key,mouse,pad,!settings_open&&p.window&&GetForegroundWindow()==p.window,host_us);
     controller.set_pad(pad, now_us);
     const auto bpp = frame.pixel_format == 3u ? 4u : 2u;
     if (!frame.address || frame.buffer_width < 480u || frame.pixel_format > 3u ||
@@ -301,7 +306,7 @@ bool NativeWindow::present(const psprecomp::GuestMemory &memory, const Display::
             render(false);
             std::this_thread::sleep_until(began+std::chrono::microseconds(16667));
         }
-        if(settings_open){p.suppress_keyboard();if(p.gamepad)p.dialog_consumed|=p.gamepad->sample(true).buttons;p.reset_pacing=true;}
+        if(settings_open){p.wheel=0;p.host_input.release();p.suppress_keyboard();if(p.gamepad)p.dialog_consumed|=p.gamepad->sample(true).buttons;p.reset_pacing=true;}
     } else if (p.paced && p.window) { InvalidateRect(p.window, nullptr, FALSE); UpdateWindow(p.window); }
     return !p.closed;
 }

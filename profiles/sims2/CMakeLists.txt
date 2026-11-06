@@ -1,10 +1,17 @@
 # Local AOT development build, with separate desktop and diagnostic entry points.
 set(SIMS2_GENERATED_DIR "${CMAKE_CURRENT_SOURCE_DIR}/generated" CACHE PATH
     "Local Sims 2 code generated from the player's supported disc")
-if(NOT EXISTS "${SIMS2_GENERATED_DIR}/generated_registry.cpp")
-    message(FATAL_ERROR "Generate the Sims 2 corpus first; see profiles/sims2/README.md")
+option(SIMS2_HOST_TESTS_ONLY "Build synthetic host checks without any game corpus" OFF)
+if(SIMS2_HOST_TESTS_ONLY)
+    set(SIMS2_REGISTRY "${CMAKE_CURRENT_SOURCE_DIR}/tests/empty_registry.cpp")
+    set(SIMS2_AOT "")
+else()
+    if(NOT EXISTS "${SIMS2_GENERATED_DIR}/generated_registry.cpp")
+        message(FATAL_ERROR "Generate the Sims 2 corpus first; see profiles/sims2/README.md")
+    endif()
+    set(SIMS2_REGISTRY "${SIMS2_GENERATED_DIR}/generated_registry.cpp")
+    file(GLOB SIMS2_AOT CONFIGURE_DEPENDS "${SIMS2_GENERATED_DIR}/generated_unit_*.cpp")
 endif()
-file(GLOB SIMS2_AOT CONFIGURE_DEPENDS "${SIMS2_GENERATED_DIR}/generated_unit_*.cpp")
 set_source_files_properties(third_party/tiny_aes/aes.c PROPERTIES LANGUAGE CXX)
 add_library(sims2_kernel STATIC host/startup_hle.cpp host/kernel/early_kernel.cpp
     host/umd/disc_image.cpp host/umd/umd_drive.cpp host/io/io_manager.cpp
@@ -71,8 +78,12 @@ endif()
 
 target_include_directories(sims2_kernel PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/host")
 target_include_directories(sims2_kernel PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/third_party")
+option(SIMS2_TIMING_RESEARCH "Developer-only bounded render timing experiment, never for releases" OFF)
+if(SIMS2_TIMING_RESEARCH)
+    set_property(SOURCE host/main.cpp APPEND PROPERTY COMPILE_DEFINITIONS SIMS2_TIMING_RESEARCH=1)
+endif()
 add_executable(sims2_probe host/main.cpp
-    "${SIMS2_GENERATED_DIR}/generated_registry.cpp" ${SIMS2_AOT})
+    "${SIMS2_REGISTRY}" ${SIMS2_AOT})
 target_link_libraries(sims2_probe PRIVATE sims2_kernel)
 if(SIMS2_GRAPHICS_BACKEND STREQUAL "D3D11")
     add_dependencies(sims2_probe sims2_codec_runtime)
@@ -232,4 +243,17 @@ if(WIN32 AND PSPRECOMP_BUILD_PROFILE_TESTS AND SIMS2_GRAPHICS_BACKEND STREQUAL "
     foreach(target IN ITEMS sims2_renderer_tests sims2_sdl_window_tests sims2_native_audio_tests sims2_native_gamepad_tests)
         add_dependencies(${target} sims2_codec_runtime)
     endforeach()
+endif()
+
+if(PSPRECOMP_BUILD_PROFILE_TESTS)
+    add_executable(sims2_host_input_tests tests/host_input_tests.cpp)
+    target_link_libraries(sims2_host_input_tests PRIVATE sims2_host_settings sims2_kernel)
+    add_test(NAME sims2_host_input COMMAND sims2_host_input_tests)
+endif()
+
+if(PSPRECOMP_BUILD_PROFILE_TESTS)
+    find_package(Python3 QUIET COMPONENTS Interpreter)
+    if(Python3_Interpreter_FOUND)
+        add_test(NAME sims2_benchmark_statistics COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/benchmark_tests.py")
+    endif()
 endif()

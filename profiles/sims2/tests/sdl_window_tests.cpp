@@ -1,5 +1,6 @@
 #include "display/native_window.hpp"
 #include "gpu/native_renderer.hpp"
+#include "ctrl/native_gamepad.hpp"
 #include <SDL3/SDL.h>
 #include <chrono>
 #include <iostream>
@@ -33,6 +34,12 @@ int main() {
         psprecomp::GuestMemory memory;
         sims2::gpu::NativeRenderer renderer;
         sims2::display::NativeWindow window(true, &renderer);
+        {
+            sims2::ctrl::NativeGamepad polling;
+            auto event_type=SDL_RegisterEvents(1);SDL_Event event{};event.type=event_type;SDL_PushEvent(&event);
+            polling.sample(false);SDL_Event kept{};
+            require(SDL_PeepEvents(&kept,1,SDL_GETEVENT,event_type,event_type)==1,"Gamepad polling swallowed an SDL window event");
+        }
         window_id = SDL_GetWindowID(static_cast<SDL_Window *>(window.native_handle()));
         sims2::display::Display::Framebuffer frame{0x04000000u, 512u, 3u};
         sims2::ctrl::Controller controller;
@@ -41,9 +48,12 @@ int main() {
         settings.height = 800;
         settings.render_scale = 2;
         settings.vsync = false;
+        settings.input.input_hints=true;
         window.apply_settings(settings);
         for (unsigned i = 0; i < 3; ++i)
             require(window.present(memory, frame, i * 16667, controller), "Window closed unexpectedly");
+        key(SDL_SCANCODE_F2,SDLK_F2);window.present(memory,frame,45000,controller);
+        require(window.settings().show_performance,"F2 overlay shortcut failed");
         require(window.presented_frames() > 0, "Vulkan swapchain did not present");
         key(SDL_SCANCODE_F1, SDLK_F1);
         SDL_AddTimer(250, close_menu, nullptr);

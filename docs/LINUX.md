@@ -42,7 +42,7 @@ so those SDL drivers are enabled. The build summary lists detected drivers.
 Use your own supported USA ULUS-10031 ISO:
 
 ```sh
-python3 build.py '/path/to/The Sims 2 USA.iso' --jobs 2
+./setup.sh '/path/to/The Sims 2 USA.iso' --jobs 2
 ./out/sims2-linux/install/run.sh '/path/to/The Sims 2 USA.iso'
 ```
 

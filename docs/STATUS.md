@@ -9,7 +9,7 @@ operations have been exercised. Encrypted save/load has been checked across
 fresh processes, including persistent furniture/design changes and a collected
 secret. Playtesting reports smooth gameplay and resolved audio choppiness.
 
-The project has 39 local automated checks covering the framework, kernel/HLE,
+The project has 41 Windows automated checks covering the framework, kernel/HLE,
 I/O, save crypto, GE/display/audio, controller sampling, GPU rendering, settings
 persistence, input options, HDR conversion and presentation limits. The documented CI template uses synthetic framework tests and does not receive a game image.
 
@@ -27,8 +27,8 @@ reproduction steps and checked with focused regressions.
 - Windows x64 / Direct3D 11 is the established playable build. The new SDL/Vulkan
   backend compiles on Linux; renderer/audio/gamepad tests and the X11/Wayland F1
   shell checks pass. The native Linux game passes a 900-frame startup check with
-  40,684 GPU draws and 429 decoded movie frames. All 37 Linux checks pass; the
-  original 39 Windows checks and four Windows Vulkan renderer checks pass too.
+  40,684 GPU draws and 429 decoded movie frames. The host-only Linux suite passes 39 checks without an ISO; the Windows suite
+  passes 41, with seven focused Windows Vulkan/input/statistics checks as well.
   Physical Steam Deck/Gamescope and Fedora/Arch playtesting remains. See [LINUX.md](LINUX.md).
 - Later quests and some PSP HLE/graphics operations remain unverified or incomplete.
 - Physical controller/hardware combinations need user feedback; virtual SDL device tests pass.
@@ -43,3 +43,18 @@ Report reproducible issues through the repository issue tracker. Include the
 commit, system/GPU, relevant F1 settings, input device, expected behavior and
 actual behavior. Redact personal paths and credentials from logs. Keep disc
 images, extracted game files, saves and generated game code out of public issues.
+
+## v0.2.0 host improvements
+
+SDL video shells retain event ownership during gamepad polling. The F2 graph and
+status panel are shared across backends. F1 now includes keyboard/controller
+rebinding, Classic/WASD presets, mouse camera rotation, wheel navigation, optional
+D-pad repeat filtering, camera sensitivity/inversion and host input hints.
+These hints do not replace native game artwork or add direct native-menu clicks.
+
+Windows/Linux source-installer packages, a prerequisite checker, reproducible
+benchmark/statistics tooling and an import-registration inventory are available.
+The recorded RX 6950 XT hidden-window baseline preserved native menu timing at
+1x/4x; it is not a visible gameplay FPS claim. A bounded 120 Hz wait experiment
+did not increase the steady-state menu cadence and is disabled in production.
+See BENCHMARKS.md and HARDWARE-VALIDATION.md for evidence and remaining limits.

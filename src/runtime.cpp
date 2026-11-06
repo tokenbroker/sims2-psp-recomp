@@ -6,6 +6,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <iostream>
+#include <fstream>
 #include <sstream>
 #include <unordered_map>
 #include <vector>
@@ -486,6 +487,11 @@ std::string Runtime::hle_key(std::string_view library, std::uint32_t nid) {
 }
 
 void Runtime::register_hle(std::string library, std::uint32_t nid, HleFunction function) {
+    // Opt-in registration inventory. Presence of a handler is not a claim that
+    // every mode of that API is supported or tested.
+    if(const auto *path=std::getenv("PSPRECOMP_HLE_REGISTRY")){
+        std::ofstream registry(path,std::ios::app);registry<<library<<','<<hex32(nid)<<'\n';
+    }
     hle_[std::move(library)][nid] = std::move(function);
 }
 

@@ -1,0 +1,1346 @@
+{
+  "format": 1,
+  "import_count": 223,
+  "registered_count": 171,
+  "meaning": "Registered does not mean complete or exercised; unsupported API modes can still stop.",
+  "imports": [
+    {
+      "library": "IoFileMgrForUser",
+      "nid": "0x6A638D83",
+      "name": "sceIoRead",
+      "handler_registered": true
+    },
+    {
+      "library": "IoFileMgrForUser",
+      "nid": "0x42EC03AC",
+      "name": "sceIoWrite",
+      "handler_registered": true
+    },
+    {
+      "library": "IoFileMgrForUser",
+      "nid": "0x27EB27B8",
+      "name": "sceIoLseek",
+      "handler_registered": true
+    },
+    {
+      "library": "IoFileMgrForUser",
+      "nid": "0x68963324",
+      "name": "sceIoLseek32",
+      "handler_registered": false
+    },
+    {
+      "library": "IoFileMgrForUser",
+      "nid": "0x63632449",
+      "name": "",
+      "handler_registered": true
+    },
+    {
+      "library": "IoFileMgrForUser",
+      "nid": "0xF27A9C51",
+      "name": "",
+      "handler_registered": false
+    },
+    {
+      "library": "IoFileMgrForUser",
+      "nid": "0x06A70004",
+      "name": "",
+      "handler_registered": false
+    },
+    {
+      "library": "IoFileMgrForUser",
+      "nid": "0x1117C65F",
+      "name": "",
+      "handler_registered": false
+    },
+    {
+      "library": "IoFileMgrForUser",
+      "nid": "0x55F4717D",
+      "name": "",
+      "handler_registered": false
+    },
+    {
+      "library": "IoFileMgrForUser",
+      "nid": "0x779103A0",
+      "name": "",
+      "handler_registered": false
+    },
+    {
+      "library": "IoFileMgrForUser",
+      "nid": "0x54F5FB11",
+      "name": "sceIoDevctl",
+      "handler_registered": true
+    },
+    {
+      "library": "IoFileMgrForUser",
+      "nid": "0x810C4BC3",
+      "name": "sceIoClose",
+      "handler_registered": true
+    },
+    {
+      "library": "IoFileMgrForUser",
+      "nid": "0x109F50BC",
+      "name": "sceIoOpen",
+      "handler_registered": true
+    },
+    {
+      "library": "Kernel_Library",
+      "nid": "0x092968F4",
+      "name": "",
+      "handler_registered": true
+    },
+    {
+      "library": "Kernel_Library",
+      "nid": "0x5F10D406",
+      "name": "",
+      "handler_registered": true
+    },
+    {
+      "library": "LoadExecForUser",
+      "nid": "0x05572A5F",
+      "name": "",
+      "handler_registered": false
+    },
+    {
+      "library": "LoadExecForUser",
+      "nid": "0x4AC57943",
+      "name": "sceKernelRegisterExitCallback",
+      "handler_registered": true
+    },
+    {
+      "library": "ModuleMgrForUser",
+      "nid": "0x977DE386",
+      "name": "",
+      "handler_registered": true
+    },
+    {
+      "library": "ModuleMgrForUser",
+      "nid": "0xF0A26395",
+      "name": "",
+      "handler_registered": true
+    },
+    {
+      "library": "ModuleMgrForUser",
+      "nid": "0xD8B73127",
+      "name": "",
+      "handler_registered": true
+    },
+    {
+      "library": "ModuleMgrForUser",
+      "nid": "0x50F0C1EC",
+      "name": "",
+      "handler_registered": true
+    },
+    {
+      "library": "ModuleMgrForUser",
+      "nid": "0xD1FF982A",
+      "name": "",
+      "handler_registered": true
+    },
+    {
+      "library": "ModuleMgrForUser",
+      "nid": "0x2E0911AA",
+      "name": "",
+      "handler_registered": true
+    },
+    {
+      "library": "ModuleMgrForUser",
+      "nid": "0xD675EBB8",
+      "name": "",
+      "handler_registered": false
+    },
+    {
+      "library": "StdioForUser",
+      "nid": "0x172D316E",
+      "name": "",
+      "handler_registered": true
+    },
+    {
+      "library": "StdioForUser",
+      "nid": "0xA6BAB2E9",
+      "name": "",
+      "handler_registered": true
+    },
+    {
+      "library": "StdioForUser",
+      "nid": "0xF78BA90A",
+      "name": "",
+      "handler_registered": true
+    },
+    {
+      "library": "SysMemUserForUser",
+      "nid": "0xA291F107",
+      "name": "sceKernelMaxFreeMemSize",
+      "handler_registered": true
+    },
+    {
+      "library": "SysMemUserForUser",
+      "nid": "0x237DBD4F",
+      "name": "sceKernelAllocPartitionMemory",
+      "handler_registered": true
+    },
+    {
+      "library": "SysMemUserForUser",
+      "nid": "0xB6D61D02",
+      "name": "sceKernelFreePartitionMemory",
+      "handler_registered": true
+    },
+    {
+      "library": "SysMemUserForUser",
+      "nid": "0x9D9A5BA1",
+      "name": "sceKernelGetBlockHeadAddr",
+      "handler_registered": true
+    },
+    {
+      "library": "SysMemUserForUser",
+      "nid": "0x7591C7DB",
+      "name": "sceKernelSetCompiledSdkVersion",
+      "handler_registered": true
+    },
+    {
+      "library": "SysMemUserForUser",
+      "nid": "0xF77D77CB",
+      "name": "sceKernelSetCompilerVersion",
+      "handler_registered": true
+    },
+    {
+      "library": "SysMemUserForUser",
+      "nid": "0x13A5ABEF",
+      "name": "sceKernelPrintf",
+      "handler_registered": false
+    },
+    {
+      "library": "ThreadManForUser",
+      "nid": "0x349D6D6C",
+      "name": "",
+      "handler_registered": true
+    },
+    {
+      "library": "ThreadManForUser",
+      "nid": "0x446D8DE6",
+      "name": "sceKernelCreateThread",
+      "handler_registered": true
+    },
+    {
+      "library": "ThreadManForUser",
+      "nid": "0xF475845D",
+      "name": "sceKernelStartThread",
+      "handler_registered": true
+    },
+    {
+      "library": "ThreadManForUser",
+      "nid": "0xAA73C935",
+      "name": "",
+      "handler_registered": true
+    },
+    {
+      "library": "ThreadManForUser",
+      "nid": "0x809CE29B",
+      "name": "sceKernelExitDeleteThread",
+      "handler_registered": true
+    },
+    {
+      "library": "ThreadManForUser",
+      "nid": "0x383F7BCC",
+      "name": "",
+      "handler_registered": true
+    },
+    {
+      "library": "ThreadManForUser",
+      "nid": "0x71BC9871",
+      "name": "",
+      "handler_registered": true
+    },
+    {
+      "library": "ThreadManForUser",
+      "nid": "0x293B45B8",
+      "name": "sceKernelGetThreadId",
+      "handler_registered": true
+    },
+    {
+      "library": "ThreadManForUser",
+      "nid": "0x94AA61EE",
+      "name": "",
+      "handler_registered": true
+    },
+    {
+      "library": "ThreadManForUser",
+      "nid": "0x278C0DF5",
+      "name": "sceKernelWaitThreadEnd",
+      "handler_registered": true
+    },
+    {
+      "library": "ThreadManForUser",
+      "nid": "0xCEADEB47",
+      "name": "sceKernelDelayThread",
+      "handler_registered": true
+    },
+    {
+      "library": "ThreadManForUser",
+      "nid": "0x68DA9E36",
+      "name": "sceKernelDelayThreadCB",
+      "handler_registered": true
+    },
+    {
+      "library": "ThreadManForUser",
+      "nid": "0xD6DA4BA1",
+      "name": "sceKernelCreateSema",
+      "handler_registered": true
+    },
+    {
+      "library": "ThreadManForUser",
+      "nid": "0x28B6489C",
+      "name": "sceKernelDeleteSema",
+      "handler_registered": true
+    },
+    {
+      "library": "ThreadManForUser",
+      "nid": "0x3F53E640",
+      "name": "sceKernelSignalSema",
+      "handler_registered": true
+    },
+    {
+      "library": "ThreadManForUser",
+      "nid": "0x4E3A1105",
+      "name": "sceKernelWaitSema",
+      "handler_registered": true
+    },
+    {
+      "library": "ThreadManForUser",
+      "nid": "0x55C20A00",
+      "name": "sceKernelCreateEventFlag",
+      "handler_registered": true
+    },
+    {
+      "library": "ThreadManForUser",
+      "nid": "0xEF9E4C70",
+      "name": "sceKernelDeleteEventFlag",
+      "handler_registered": true
+    },
+    {
+      "library": "ThreadManForUser",
+      "nid": "0x1FB15A32",
+      "name": "sceKernelSetEventFlag",
+      "handler_registered": true
+    },
+    {
+      "library": "ThreadManForUser",
+      "nid": "0x812346E4",
+      "name": "sceKernelClearEventFlag",
+      "handler_registered": true
+    },
+    {
+      "library": "ThreadManForUser",
+      "nid": "0x402FCF22",
+      "name": "sceKernelWaitEventFlag",
+      "handler_registered": true
+    },
+    {
+      "library": "ThreadManForUser",
+      "nid": "0x328C546A",
+      "name": "sceKernelWaitEventFlagCB",
+      "handler_registered": true
+    },
+    {
+      "library": "ThreadManForUser",
+      "nid": "0xA66B0120",
+      "name": "",
+      "handler_registered": true
+    },
+    {
+      "library": "ThreadManForUser",
+      "nid": "0xE81CAF8F",
+      "name": "sceKernelCreateCallback",
+      "handler_registered": true
+    },
+    {
+      "library": "ThreadManForUser",
+      "nid": "0xC07BB470",
+      "name": "sceKernelCreateFpl",
+      "handler_registered": true
+    },
+    {
+      "library": "ThreadManForUser",
+      "nid": "0xED1410E0",
+      "name": "",
+      "handler_registered": true
+    },
+    {
+      "library": "ThreadManForUser",
+      "nid": "0x623AE665",
+      "name": "",
+      "handler_registered": true
+    },
+    {
+      "library": "ThreadManForUser",
+      "nid": "0x369ED59D",
+      "name": "sceKernelGetSystemTimeLow",
+      "handler_registered": true
+    },
+    {
+      "library": "ThreadManForUser",
+      "nid": "0x9FA03CD3",
+      "name": "",
+      "handler_registered": true
+    },
+    {
+      "library": "UtilsForUser",
+      "nid": "0x91E4F6A7",
+      "name": "",
+      "handler_registered": false
+    },
+    {
+      "library": "UtilsForUser",
+      "nid": "0x27CC57F0",
+      "name": "",
+      "handler_registered": false
+    },
+    {
+      "library": "UtilsForUser",
+      "nid": "0x71EC4271",
+      "name": "",
+      "handler_registered": false
+    },
+    {
+      "library": "UtilsForUser",
+      "nid": "0x79D1C3FA",
+      "name": "sceKernelDcacheWritebackAll",
+      "handler_registered": true
+    },
+    {
+      "library": "UtilsForUser",
+      "nid": "0x34B9FA9E",
+      "name": "sceKernelDcacheWritebackInvalidateRange",
+      "handler_registered": true
+    },
+    {
+      "library": "UtilsForUser",
+      "nid": "0x37FB5C42",
+      "name": "sceKernelGetGPI",
+      "handler_registered": false
+    },
+    {
+      "library": "UtilsForUser",
+      "nid": "0x6AD345D7",
+      "name": "sceKernelSetGPO",
+      "handler_registered": true
+    },
+    {
+      "library": "sceSuspendForUser",
+      "nid": "0xEADB1BD7",
+      "name": "sceKernelPowerLock",
+      "handler_registered": true
+    },
+    {
+      "library": "sceSuspendForUser",
+      "nid": "0x3AEE7261",
+      "name": "sceKernelPowerUnlock",
+      "handler_registered": true
+    },
+    {
+      "library": "sceSuspendForUser",
+      "nid": "0x090CCB3F",
+      "name": "sceKernelPowerTick",
+      "handler_registered": true
+    },
+    {
+      "library": "sceSuspendForUser",
+      "nid": "0xA14F40B2",
+      "name": "sceKernelVolatileMemTryLock",
+      "handler_registered": true
+    },
+    {
+      "library": "sceSuspendForUser",
+      "nid": "0xA569E425",
+      "name": "sceKernelVolatileMemUnlock",
+      "handler_registered": true
+    },
+    {
+      "library": "sceCtrl",
+      "nid": "0x6A2774F3",
+      "name": "sceCtrlSetSamplingCycle",
+      "handler_registered": true
+    },
+    {
+      "library": "sceCtrl",
+      "nid": "0x1F4011E6",
+      "name": "sceCtrlSetSamplingMode",
+      "handler_registered": true
+    },
+    {
+      "library": "sceCtrl",
+      "nid": "0x1F803938",
+      "name": "sceCtrlReadBufferPositive",
+      "handler_registered": true
+    },
+    {
+      "library": "sceDisplay",
+      "nid": "0x0E20F177",
+      "name": "",
+      "handler_registered": true
+    },
+    {
+      "library": "sceDisplay",
+      "nid": "0xDBA6C4C4",
+      "name": "",
+      "handler_registered": true
+    },
+    {
+      "library": "sceDisplay",
+      "nid": "0x289D82FE",
+      "name": "",
+      "handler_registered": true
+    },
+    {
+      "library": "sceDisplay",
+      "nid": "0x984C27E7",
+      "name": "",
+      "handler_registered": true
+    },
+    {
+      "library": "sceDisplay",
+      "nid": "0x46F186C3",
+      "name": "",
+      "handler_registered": true
+    },
+    {
+      "library": "sceGe_user",
+      "nid": "0xE47E40E4",
+      "name": "sceGeEdramGetAddr",
+      "handler_registered": true
+    },
+    {
+      "library": "sceGe_user",
+      "nid": "0xAB49E76A",
+      "name": "",
+      "handler_registered": true
+    },
+    {
+      "library": "sceGe_user",
+      "nid": "0x1C0D95A6",
+      "name": "",
+      "handler_registered": true
+    },
+    {
+      "library": "sceGe_user",
+      "nid": "0xE0D68148",
+      "name": "",
+      "handler_registered": true
+    },
+    {
+      "library": "sceGe_user",
+      "nid": "0x03444EB4",
+      "name": "",
+      "handler_registered": true
+    },
+    {
+      "library": "sceGe_user",
+      "nid": "0xB287BD61",
+      "name": "",
+      "handler_registered": true
+    },
+    {
+      "library": "sceGe_user",
+      "nid": "0xB448EC0D",
+      "name": "",
+      "handler_registered": false
+    },
+    {
+      "library": "sceGe_user",
+      "nid": "0x4C06E472",
+      "name": "",
+      "handler_registered": false
+    },
+    {
+      "library": "sceGe_user",
+      "nid": "0xA4FC06A4",
+      "name": "",
+      "handler_registered": true
+    },
+    {
+      "library": "sceGe_user",
+      "nid": "0x05DB22CE",
+      "name": "",
+      "handler_registered": true
+    },
+    {
+      "library": "sceRtc",
+      "nid": "0x3F7AD767",
+      "name": "",
+      "handler_registered": true
+    },
+    {
+      "library": "sceRtc",
+      "nid": "0xE7C27D1B",
+      "name": "",
+      "handler_registered": true
+    },
+    {
+      "library": "sceUmdUser",
+      "nid": "0x46EBB729",
+      "name": "sceUmdCheckMedium",
+      "handler_registered": true
+    },
+    {
+      "library": "sceUmdUser",
+      "nid": "0xC6183D47",
+      "name": "sceUmdActivate",
+      "handler_registered": true
+    },
+    {
+      "library": "sceUmdUser",
+      "nid": "0x8EF08FCE",
+      "name": "sceUmdWaitDriveStat",
+      "handler_registered": true
+    },
+    {
+      "library": "sceUmdUser",
+      "nid": "0x6B4A146C",
+      "name": "sceUmdGetDriveStat",
+      "handler_registered": true
+    },
+    {
+      "library": "sceNet",
+      "nid": "0x39AF39A6",
+      "name": "",
+      "handler_registered": false
+    },
+    {
+      "library": "sceNet",
+      "nid": "0x281928A9",
+      "name": "",
+      "handler_registered": false
+    },
+    {
+      "library": "sceNet",
+      "nid": "0x89360950",
+      "name": "",
+      "handler_registered": false
+    },
+    {
+      "library": "sceNet",
+      "nid": "0x0BF0A3AE",
+      "name": "",
+      "handler_registered": false
+    },
+    {
+      "library": "sceNet",
+      "nid": "0xCC393E48",
+      "name": "",
+      "handler_registered": false
+    },
+    {
+      "library": "sceNetAdhoc",
+      "nid": "0xE1D621D7",
+      "name": "",
+      "handler_registered": false
+    },
+    {
+      "library": "sceNetAdhoc",
+      "nid": "0xA62C6F57",
+      "name": "",
+      "handler_registered": false
+    },
+    {
+      "library": "sceNetAdhoc",
+      "nid": "0x6F92741B",
+      "name": "",
+      "handler_registered": false
+    },
+    {
+      "library": "sceNetAdhoc",
+      "nid": "0xABED3790",
+      "name": "",
+      "handler_registered": false
+    },
+    {
+      "library": "sceNetAdhoc",
+      "nid": "0xDFE53E03",
+      "name": "",
+      "handler_registered": false
+    },
+    {
+      "library": "sceNetAdhoc",
+      "nid": "0x7F27BB5E",
+      "name": "",
+      "handler_registered": false
+    },
+    {
+      "library": "sceNetAdhocctl",
+      "nid": "0xE26F226E",
+      "name": "",
+      "handler_registered": false
+    },
+    {
+      "library": "sceNetAdhocctl",
+      "nid": "0x9D689E13",
+      "name": "",
+      "handler_registered": false
+    },
+    {
+      "library": "sceNetAdhocctl",
+      "nid": "0x0AD043ED",
+      "name": "",
+      "handler_registered": false
+    },
+    {
+      "library": "sceNetAdhocctl",
+      "nid": "0x08FFF7A0",
+      "name": "",
+      "handler_registered": false
+    },
+    {
+      "library": "sceNetAdhocctl",
+      "nid": "0x34401D65",
+      "name": "",
+      "handler_registered": false
+    },
+    {
+      "library": "sceNetAdhocctl",
+      "nid": "0x20B317A0",
+      "name": "",
+      "handler_registered": false
+    },
+    {
+      "library": "sceNetAdhocctl",
+      "nid": "0x6402490B",
+      "name": "",
+      "handler_registered": false
+    },
+    {
+      "library": "sceNetAdhocctl",
+      "nid": "0x75ECD386",
+      "name": "",
+      "handler_registered": false
+    },
+    {
+      "library": "sceNetAdhocctl",
+      "nid": "0x81AEE1BE",
+      "name": "",
+      "handler_registered": false
+    },
+    {
+      "library": "sceNetAdhocMatching",
+      "nid": "0x2A2A1E07",
+      "name": "",
+      "handler_registered": false
+    },
+    {
+      "library": "sceNetAdhocMatching",
+      "nid": "0x7945ECDA",
+      "name": "",
+      "handler_registered": false
+    },
+    {
+      "library": "sceNetAdhocMatching",
+      "nid": "0xCA5EDA6F",
+      "name": "",
+      "handler_registered": false
+    },
+    {
+      "library": "sceNetAdhocMatching",
+      "nid": "0x93EF3843",
+      "name": "",
+      "handler_registered": false
+    },
+    {
+      "library": "sceNetAdhocMatching",
+      "nid": "0x32B156B3",
+      "name": "",
+      "handler_registered": false
+    },
+    {
+      "library": "sceNetAdhocMatching",
+      "nid": "0xF16EAF4F",
+      "name": "",
+      "handler_registered": false
+    },
+    {
+      "library": "sceNetAdhocMatching",
+      "nid": "0x5E3D4B79",
+      "name": "",
+      "handler_registered": false
+    },
+    {
+      "library": "sceNetAdhocMatching",
+      "nid": "0xEA3C6108",
+      "name": "",
+      "handler_registered": false
+    },
+    {
+      "library": "sceNetAdhocMatching",
+      "nid": "0xB58E61B7",
+      "name": "",
+      "handler_registered": false
+    },
+    {
+      "library": "sceMpeg",
+      "nid": "0x21FF80E4",
+      "name": "",
+      "handler_registered": true
+    },
+    {
+      "library": "sceMpeg",
+      "nid": "0x611E9E11",
+      "name": "",
+      "handler_registered": true
+    },
+    {
+      "library": "sceMpeg",
+      "nid": "0x682A619B",
+      "name": "",
+      "handler_registered": true
+    },
+    {
+      "library": "sceMpeg",
+      "nid": "0x874624D6",
+      "name": "",
+      "handler_registered": true
+    },
+    {
+      "library": "sceMpeg",
+      "nid": "0xC132E22F",
+      "name": "",
+      "handler_registered": true
+    },
+    {
+      "library": "sceMpeg",
+      "nid": "0xD8C5F121",
+      "name": "",
+      "handler_registered": true
+    },
+    {
+      "library": "sceMpeg",
+      "nid": "0x606A4649",
+      "name": "",
+      "handler_registered": true
+    },
+    {
+      "library": "sceMpeg",
+      "nid": "0x42560F23",
+      "name": "",
+      "handler_registered": true
+    },
+    {
+      "library": "sceMpeg",
+      "nid": "0x591A4AA2",
+      "name": "",
+      "handler_registered": true
+    },
+    {
+      "library": "sceMpeg",
+      "nid": "0xA780CF7E",
+      "name": "",
+      "handler_registered": true
+    },
+    {
+      "library": "sceMpeg",
+      "nid": "0xCEB870B1",
+      "name": "",
+      "handler_registered": true
+    },
+    {
+      "library": "sceMpeg",
+      "nid": "0xF8DCB679",
+      "name": "",
+      "handler_registered": true
+    },
+    {
+      "library": "sceMpeg",
+      "nid": "0x167AFD9E",
+      "name": "",
+      "handler_registered": true
+    },
+    {
+      "library": "sceMpeg",
+      "nid": "0xFE246728",
+      "name": "",
+      "handler_registered": true
+    },
+    {
+      "library": "sceMpeg",
+      "nid": "0xE1CE83A7",
+      "name": "",
+      "handler_registered": true
+    },
+    {
+      "library": "sceMpeg",
+      "nid": "0xA11C7026",
+      "name": "",
+      "handler_registered": true
+    },
+    {
+      "library": "sceMpeg",
+      "nid": "0x211A057C",
+      "name": "",
+      "handler_registered": true
+    },
+    {
+      "library": "sceMpeg",
+      "nid": "0x67179B1B",
+      "name": "",
+      "handler_registered": true
+    },
+    {
+      "library": "sceMpeg",
+      "nid": "0xF0EB1125",
+      "name": "",
+      "handler_registered": true
+    },
+    {
+      "library": "sceMpeg",
+      "nid": "0xF2930C9C",
+      "name": "",
+      "handler_registered": true
+    },
+    {
+      "library": "sceMpeg",
+      "nid": "0x31BD0272",
+      "name": "",
+      "handler_registered": true
+    },
+    {
+      "library": "sceMpeg",
+      "nid": "0x800C44DF",
+      "name": "",
+      "handler_registered": true
+    },
+    {
+      "library": "sceMpeg",
+      "nid": "0xD7A29F46",
+      "name": "",
+      "handler_registered": true
+    },
+    {
+      "library": "sceMpeg",
+      "nid": "0x37295ED8",
+      "name": "",
+      "handler_registered": true
+    },
+    {
+      "library": "sceMpeg",
+      "nid": "0x13407F13",
+      "name": "",
+      "handler_registered": true
+    },
+    {
+      "library": "sceMpeg",
+      "nid": "0xB240A59E",
+      "name": "",
+      "handler_registered": true
+    },
+    {
+      "library": "sceMpeg",
+      "nid": "0xB5F6DC87",
+      "name": "",
+      "handler_registered": true
+    },
+    {
+      "library": "sceUtility",
+      "nid": "0x4DB1E739",
+      "name": "",
+      "handler_registered": false
+    },
+    {
+      "library": "sceUtility",
+      "nid": "0xF88155F6",
+      "name": "",
+      "handler_registered": false
+    },
+    {
+      "library": "sceUtility",
+      "nid": "0x91E70E35",
+      "name": "",
+      "handler_registered": false
+    },
+    {
+      "library": "sceUtility",
+      "nid": "0x6332AA39",
+      "name": "",
+      "handler_registered": false
+    },
+    {
+      "library": "sceUtility",
+      "nid": "0x50C4CD57",
+      "name": "",
+      "handler_registered": true
+    },
+    {
+      "library": "sceUtility",
+      "nid": "0x9790B33C",
+      "name": "",
+      "handler_registered": true
+    },
+    {
+      "library": "sceUtility",
+      "nid": "0xD4B95FFB",
+      "name": "",
+      "handler_registered": true
+    },
+    {
+      "library": "sceUtility",
+      "nid": "0x8874DBE0",
+      "name": "",
+      "handler_registered": true
+    },
+    {
+      "library": "sceUtility",
+      "nid": "0x2AD8E239",
+      "name": "",
+      "handler_registered": false
+    },
+    {
+      "library": "sceUtility",
+      "nid": "0x67AF3428",
+      "name": "",
+      "handler_registered": false
+    },
+    {
+      "library": "sceUtility",
+      "nid": "0x95FC253B",
+      "name": "",
+      "handler_registered": false
+    },
+    {
+      "library": "sceUtility",
+      "nid": "0x9A1C91D7",
+      "name": "",
+      "handler_registered": false
+    },
+    {
+      "library": "sceUtility",
+      "nid": "0xA5DA2406",
+      "name": "",
+      "handler_registered": true
+    },
+    {
+      "library": "sceUtility",
+      "nid": "0x34B78343",
+      "name": "",
+      "handler_registered": true
+    },
+    {
+      "library": "sceUtility",
+      "nid": "0x1579A159",
+      "name": "",
+      "handler_registered": true
+    },
+    {
+      "library": "sceUtility",
+      "nid": "0x64D50C56",
+      "name": "",
+      "handler_registered": true
+    },
+    {
+      "library": "scePower",
+      "nid": "0x04B7766E",
+      "name": "",
+      "handler_registered": true
+    },
+    {
+      "library": "sceSasCore",
+      "nid": "0xA3589D81",
+      "name": "",
+      "handler_registered": true
+    },
+    {
+      "library": "sceSasCore",
+      "nid": "0x50A14DFC",
+      "name": "",
+      "handler_registered": true
+    },
+    {
+      "library": "sceSasCore",
+      "nid": "0x68A46B95",
+      "name": "",
+      "handler_registered": true
+    },
+    {
+      "library": "sceSasCore",
+      "nid": "0x440CA7D8",
+      "name": "",
+      "handler_registered": true
+    },
+    {
+      "library": "sceSasCore",
+      "nid": "0xAD84D37F",
+      "name": "",
+      "handler_registered": true
+    },
+    {
+      "library": "sceSasCore",
+      "nid": "0x99944089",
+      "name": "",
+      "handler_registered": true
+    },
+    {
+      "library": "sceSasCore",
+      "nid": "0xB7660A23",
+      "name": "",
+      "handler_registered": true
+    },
+    {
+      "library": "sceSasCore",
+      "nid": "0x019B25EB",
+      "name": "",
+      "handler_registered": true
+    },
+    {
+      "library": "sceSasCore",
+      "nid": "0x9EC3676A",
+      "name": "",
+      "handler_registered": true
+    },
+    {
+      "library": "sceSasCore",
+      "nid": "0x5F9529F6",
+      "name": "",
+      "handler_registered": true
+    },
+    {
+      "library": "sceSasCore",
+      "nid": "0x74AE582A",
+      "name": "",
+      "handler_registered": true
+    },
+    {
+      "library": "sceSasCore",
+      "nid": "0xCBCD4F79",
+      "name": "",
+      "handler_registered": true
+    },
+    {
+      "library": "sceSasCore",
+      "nid": "0x42778A9F",
+      "name": "",
+      "handler_registered": true
+    },
+    {
+      "library": "sceSasCore",
+      "nid": "0xA0CF2FA4",
+      "name": "",
+      "handler_registered": true
+    },
+    {
+      "library": "sceSasCore",
+      "nid": "0x76F01ACA",
+      "name": "",
+      "handler_registered": true
+    },
+    {
+      "library": "sceSasCore",
+      "nid": "0xF983B186",
+      "name": "",
+      "handler_registered": true
+    },
+    {
+      "library": "sceSasCore",
+      "nid": "0xD5A229C9",
+      "name": "",
+      "handler_registered": true
+    },
+    {
+      "library": "sceSasCore",
+      "nid": "0x33D4AB37",
+      "name": "",
+      "handler_registered": true
+    },
+    {
+      "library": "sceSasCore",
+      "nid": "0x267A6DD2",
+      "name": "",
+      "handler_registered": true
+    },
+    {
+      "library": "sceAudio",
+      "nid": "0x136CAF51",
+      "name": "",
+      "handler_registered": true
+    },
+    {
+      "library": "sceAudio",
+      "nid": "0xE2D56B2D",
+      "name": "",
+      "handler_registered": true
+    },
+    {
+      "library": "sceAudio",
+      "nid": "0x13F592BC",
+      "name": "",
+      "handler_registered": true
+    },
+    {
+      "library": "sceAudio",
+      "nid": "0x5EC81C55",
+      "name": "",
+      "handler_registered": true
+    },
+    {
+      "library": "sceAudio",
+      "nid": "0x6FC46853",
+      "name": "",
+      "handler_registered": true
+    },
+    {
+      "library": "sceAudio",
+      "nid": "0xB011922F",
+      "name": "",
+      "handler_registered": true
+    },
+    {
+      "library": "sceAudio",
+      "nid": "0xCB2E439E",
+      "name": "",
+      "handler_registered": true
+    },
+    {
+      "library": "sceAudio",
+      "nid": "0x95FD0C2D",
+      "name": "",
+      "handler_registered": true
+    },
+    {
+      "library": "sceAudio",
+      "nid": "0xB7E1D8E7",
+      "name": "",
+      "handler_registered": true
+    },
+    {
+      "library": "sceAtrac3plus",
+      "nid": "0x780F88D1",
+      "name": "",
+      "handler_registered": true
+    },
+    {
+      "library": "sceAtrac3plus",
+      "nid": "0x61EB33F5",
+      "name": "",
+      "handler_registered": true
+    },
+    {
+      "library": "sceAtrac3plus",
+      "nid": "0x0E2A73AB",
+      "name": "",
+      "handler_registered": true
+    },
+    {
+      "library": "sceAtrac3plus",
+      "nid": "0x6A8C3CD5",
+      "name": "",
+      "handler_registered": true
+    },
+    {
+      "library": "sceAtrac3plus",
+      "nid": "0x9AE849A7",
+      "name": "",
+      "handler_registered": true
+    },
+    {
+      "library": "sceAtrac3plus",
+      "nid": "0x5D268707",
+      "name": "",
+      "handler_registered": true
+    },
+    {
+      "library": "sceAtrac3plus",
+      "nid": "0x7DB31251",
+      "name": "",
+      "handler_registered": true
+    },
+    {
+      "library": "sceAtrac3plus",
+      "nid": "0xE23E3A35",
+      "name": "",
+      "handler_registered": true
+    },
+    {
+      "library": "sceAtrac3plus",
+      "nid": "0xA2BBA8BE",
+      "name": "",
+      "handler_registered": true
+    },
+    {
+      "library": "sceAtrac3plus",
+      "nid": "0x31668BAA",
+      "name": "",
+      "handler_registered": true
+    },
+    {
+      "library": "sceAtrac3plus",
+      "nid": "0xE88F759B",
+      "name": "",
+      "handler_registered": true
+    },
+    {
+      "library": "sceLibFont",
+      "nid": "0x67F17ED7",
+      "name": "",
+      "handler_registered": true
+    },
+    {
+      "library": "sceLibFont",
+      "nid": "0x574B6FBC",
+      "name": "",
+      "handler_registered": true
+    },
+    {
+      "library": "sceLibFont",
+      "nid": "0x27F6E642",
+      "name": "",
+      "handler_registered": true
+    },
+    {
+      "library": "sceLibFont",
+      "nid": "0xBC75D85B",
+      "name": "",
+      "handler_registered": true
+    },
+    {
+      "library": "sceLibFont",
+      "nid": "0xA834319D",
+      "name": "",
+      "handler_registered": true
+    },
+    {
+      "library": "sceLibFont",
+      "nid": "0x3AEA8CB6",
+      "name": "",
+      "handler_registered": true
+    },
+    {
+      "library": "sceLibFont",
+      "nid": "0x0DA7535E",
+      "name": "",
+      "handler_registered": true
+    },
+    {
+      "library": "sceLibFont",
+      "nid": "0xDCC80C2F",
+      "name": "",
+      "handler_registered": true
+    },
+    {
+      "library": "sceLibFont",
+      "nid": "0x980F4895",
+      "name": "",
+      "handler_registered": true
+    },
+    {
+      "library": "InterruptManager",
+      "nid": "0xCA04A2B9",
+      "name": "",
+      "handler_registered": true
+    },
+    {
+      "library": "InterruptManager",
+      "nid": "0xD61E6961",
+      "name": "",
+      "handler_registered": true
+    },
+    {
+      "library": "InterruptManager",
+      "nid": "0xFB8E22EC",
+      "name": "",
+      "handler_registered": true
+    }
+  ]
+}

@@ -337,7 +337,7 @@ struct NativeRenderer::Impl {
 };
 NativeRenderer::NativeRenderer(bool) : impl_(std::make_unique<Impl>()) {
     auto &r = *impl_;
-    SDL_SetAppMetadata("The Sims 2 PSP Recomp", "0.1.0", "io.github.sims2psprecomp");
+    SDL_SetAppMetadata("The Sims 2 PSP Recomp", "0.2.0", "io.github.sims2psprecomp");
     require(SDL_InitSubSystem(SDL_INIT_VIDEO), "Initialize SDL Vulkan video");
     r.video = true;
     r.device =
@@ -369,7 +369,7 @@ NativeRenderer::NativeRenderer(bool) : impl_(std::make_unique<Impl>()) {
     const std::uint32_t white = 0xffffffff;
     r.upload_texture(r.white, &white, 1, 1);
     r.submit();
-    std::cerr << "[graphics] Vulkan (SDL GPU)\n";
+    std::cerr << "[graphics] Vulkan (SDL GPU) adapter: " << SDL_GetStringProperty(SDL_GetGPUDeviceProperties(r.device),SDL_PROP_GPU_DEVICE_NAME_STRING,"unknown") << "\n";
 }
 NativeRenderer::~NativeRenderer() = default;
 void *NativeRenderer::gpu_device() const noexcept { return impl_->device; }

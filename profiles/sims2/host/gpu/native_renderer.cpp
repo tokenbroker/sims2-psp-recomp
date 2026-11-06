@@ -271,6 +271,14 @@ NativeRenderer::NativeRenderer(bool warp) : impl_(std::make_unique<Impl>()) {
     if (FAILED(result) && !warp) result = D3D11CreateDevice(nullptr, D3D_DRIVER_TYPE_WARP, nullptr, 0,
         nullptr, 0, D3D11_SDK_VERSION, &r.device, nullptr, &r.context);
     check(result, "Create D3D11 device");
+    ComPtr<IDXGIDevice> selected_device;ComPtr<IDXGIAdapter> selected_adapter;
+    if(SUCCEEDED(r.device.As(&selected_device))&&SUCCEEDED(selected_device->GetAdapter(&selected_adapter))){
+        DXGI_ADAPTER_DESC selected{};if(SUCCEEDED(selected_adapter->GetDesc(&selected))){char name[512]{};
+            WideCharToMultiByte(CP_UTF8,0,selected.Description,-1,name,sizeof(name),nullptr,nullptr);
+            std::cerr<<"[graphics] Direct3D 11 adapter: "<<name<<'\n';
+        }
+    }
+
     ComPtr<ID3DBlob> vertex, pixel, errors;
     auto compile = [&](const char *entry, const char *profile, ComPtr<ID3DBlob> &out) {
         const auto status = D3DCompile(shader, std::strlen(shader), "Sims2 GE", nullptr, nullptr, entry, profile,

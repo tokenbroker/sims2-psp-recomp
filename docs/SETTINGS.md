@@ -19,7 +19,8 @@ saved preferences remain in effect until you choose Defaults and Save. F2 toggle
 | Performance | FPS, frame-time graph/range/average, output/internal sizes, VSync/cap and HDR status. |
 | HDR | Off/Auto/On, paper white, peak brightness and active/fallback status. |
 | Audio | Master volume and mute. |
-| Controller | Adjustable stick deadzone and optional right-stick horizontal L/R camera mapping. |
+| Controller | Deadzone, right-stick activation/inversion, button rebinding and Xbox/PlayStation/Nintendo/physical labels. |
+| Keyboard/mouse | Classic/WASD presets, individual bindings, RMB camera rotation, wheel mapping, optional repeat filtering and input hints. |
 
 ## FPS and game speed
 
@@ -60,3 +61,5 @@ The same settings UI is shared with the SDL3 Vulkan build on Linux and Windows.
 On handhelds, L3 + R3 opens settings; Steam Input can also bind F1. Linux HDR is
 disabled; the backend reports SDR explicitly. Wayland fullscreen requests are
 subject to the compositor. See [LINUX.md](LINUX.md) for build and hardware status.
+
+Detailed input behavior and limits: [INPUT.md](INPUT.md). Both backends now share the complete F2 graph, resolution, aspect, cap, VSync and HDR/SDR status panel.

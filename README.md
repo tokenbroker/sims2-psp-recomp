@@ -16,6 +16,18 @@ This repository contains the recompiler, host runtime, configuration and build
 tools. **It contains no disc image, extracted game files, generated game code,
 saves or playable game executable.** Supply your own legally acquired USA ISO.
 
+Input rebinding and mouse controls: [INPUT.md](docs/INPUT.md).
+Benchmark methodology: [BENCHMARKS.md](docs/BENCHMARKS.md).
+Hardware/compatibility limits: [HARDWARE-VALIDATION.md](docs/HARDWARE-VALIDATION.md).
+
+## Download the source installer
+
+[Releases](https://github.com/tokenbroker/sims2-psp-recomp/releases) provide a
+Windows source setup bundle and Linux source archive. These contain no game-derived
+executable or disc data. Windows bundles Python; the first compile still requires
+CMake and Visual Studio C++ tools. Linux users run `./setup.sh` to check prerequisites
+and select their ISO. See [BUILD.md](docs/BUILD.md) and [LINUX.md](docs/LINUX.md).
+
 ## Build and run
 
 Windows 10/11 x64, Python 3.11+, CMake 3.21+, and Visual Studio 2022 with the

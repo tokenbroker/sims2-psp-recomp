@@ -18,6 +18,7 @@ import sys
 import time
 
 from prepare import prepare
+from doctor import check as check_prerequisites
 from check_local_build import check_local_build
 from setup_process import external_dll_search, own_process_job
 
@@ -122,7 +123,7 @@ def run(command, log, on_line=None):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--version", action="version", version="sims2-source-setup 0.1.0-dev")
+    parser.add_argument("--version", action="version", version="sims2-source-setup 0.2.0")
     parser.add_argument("iso", type=Path)
     parser.add_argument("--workspace", type=Path, default=ROOT / "out/sims2-from-iso")
     parser.add_argument("--jobs", type=int, default=4, help="Parallel build projects (1..16)")
@@ -155,6 +156,9 @@ def main():
     report_progress(0.03, "Disc verified; checking build tools")
     if os.name != "nt":
         raise RuntimeError("This setup path currently supports Windows x64 only")
+    preflight=check_prerequisites()
+    missing=[item["name"] for item in preflight["checks"] if not item["ok"]]
+    if missing:raise RuntimeError("Missing prerequisites: "+", ".join(missing)+". See the included source/docs/BUILD.md.")
     cmake = shutil.which("cmake")
     if not cmake:
         raise RuntimeError("CMake 3.21 or newer must be installed and available on PATH")
@@ -206,7 +210,7 @@ def main():
             return
         report_progress(0.22, "Configuring the game build")
         run([cmake, "-S", ROOT, "-B", build, "-G", "Visual Studio 17 2022", "-A", "x64",
-             "-DPSPRECOMP_PROFILE=sims2", "-DPSPRECOMP_BUILD_TESTS=OFF",
+             "-DPSPRECOMP_PROFILE=sims2", "-DSIMS2_HOST_TESTS_ONLY=OFF", "-DSIMS2_TIMING_RESEARCH=OFF", "-DPSPRECOMP_BUILD_TESTS=OFF",
              "-DPSPRECOMP_BUILD_PROFILE_TESTS=OFF", "-DPSPRECOMP_MSVC_MP_JOBS=1",
              "-DSIMS2_OPTIMIZE_AOT=ON", f"-DSIMS2_GRAPHICS_BACKEND={args.graphics}", f"-DSIMS2_GENERATED_DIR={generated}"], log)
         report_progress(0.25, "Compiling game code; completed work is reused")

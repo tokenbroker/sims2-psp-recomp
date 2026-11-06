@@ -4,6 +4,7 @@
 
 #include <cstdlib>
 #include <iostream>
+#include <map>
 
 namespace {
 void require(bool condition, const char *message) {
@@ -27,7 +28,10 @@ int main() {
     cpu.pc = 0x08804444u;
     kernel.begin_main_thread(cpu, "main", 0x20u);
     Display display;
-    register_display(display, kernel, runtime);
+    std::map<std::string,unsigned> timing;
+    register_display(display,kernel,runtime,{},{},[&](const char *kind,const auto &context,std::uint64_t){
+        require(context.gpr[31]!=0,"Timing probe lost caller address");++timing[kind];
+    });
     sims2::kernel::register_early_threadman(kernel, runtime);
 
     require(static_cast<std::uint32_t>(display.set_mode(1u, 480u, 272u)) == kInvalidMode &&
@@ -82,5 +86,7 @@ int main() {
                 bad(edram + 4u, 512u, 3u, 0u) == kInvalidPointer && bad(0x00001000u, 512u, 3u, 0u) == kInvalidPointer &&
                 bad(edram, 512u, 3u, 2u) == kInvalidMode && bad(0u, 0u, 9u, 0u) == 0u,
             "framebuffer validation incorrect");
+    call(runtime,0x46F186C3u,0x08804F00u);
+    require(timing["wait_start"]==3&&timing["wait_vblank"]==1&&timing["get_vcount"]==1&&timing["wait_start_cb"]==1,"Timing observer missed a wait path");
     return 0;
 }

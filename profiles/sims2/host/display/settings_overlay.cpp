@@ -34,13 +34,7 @@ struct V { float4 position:SV_POSITION; float2 uv:TEXCOORD0; };
 V vs(uint id:SV_VertexID) { V o; o.uv=float2((id<<1)&2,id&2); o.position=float4(o.uv.x*2-1,1-o.uv.y*2,0,1); return o; }
 float4 ps(V p):SV_TARGET { return float4(image.Sample(sample_image,p.uv*uv_scale).rgb,1); }
 )";
-constexpr std::array<unsigned, 2> resolutions[]{{960,544},{1280,720},{1600,900},{1920,1080},{2560,1080},{2560,1440},{3440,1440},{3840,2160},{5120,1440}};
-void row(const char *label) {
-    ImGui::TableNextRow(); ImGui::TableSetColumnIndex(0); ImGui::AlignTextToFramePadding();
-    ImGui::TextUnformatted(label); ImGui::TableSetColumnIndex(1); ImGui::SetNextItemWidth(-1);
-}
-unsigned render_dimension(float value){return unsigned(std::max(1l,std::lround(value)));}
-void note(const char *text) { ImGui::PushTextWrapPos(); ImGui::TextDisabled("%s", text); ImGui::PopTextWrapPos(); }
+
 }
 struct SettingsOverlay::Impl : SettingsMenu {
     HWND window{};
@@ -164,16 +158,8 @@ SettingsAction SettingsOverlay::present(std::span<const std::uint32_t> pixels,co
     if(game_frame && !p.opened){if(p.previous.time_since_epoch().count()){const auto ms=std::chrono::duration<float,std::milli>(now-p.previous).count();if(ms<250){p.times[p.sample++%p.times.size()]=ms;p.count=std::min(unsigned(p.times.size()),p.count+1);}}p.previous=now;}
     if(p.opened)p.previous={};
     const auto action=p.menu(settings);
-    if(settings.show_performance){ImGui::SetNextWindowPos({float(p.width)-12,12},ImGuiCond_Always,{1,0});ImGui::SetNextWindowBgAlpha(.65f);
-        if(ImGui::Begin("Performance (F2)",nullptr,ImGuiWindowFlags_AlwaysAutoResize|ImGuiWindowFlags_NoInputs|ImGuiWindowFlags_NoSavedSettings)){
-            float sum{};for(unsigned i=0;i<p.count;++i)sum+=p.times[i];const auto average=p.count?sum/p.count:0;
-            ImGui::Text("%s | %.1f fps | %.2f ms",p.opened?"Paused":"Running",average>0?1000/average:0,average);
-            ImGui::Text("Direct3D 11 | %u x %u",p.width,p.height);
-            ImGui::Text("VSync %s | %s",settings.vsync?"On":"Off",p.surface->hdr_active()?"HDR":"SDR");
-            ImGui::Text("Render %u x %u | cap %u",render_dimension(480*effective_render_scale(settings,p.height)),render_dimension(272*effective_render_scale(settings,p.height)),settings.fps_cap);
-            float lo=p.count?p.times[0]:0,hi{};for(unsigned i=0;i<p.count;++i){lo=std::min(lo,p.times[i]);hi=std::max(hi,p.times[i]);}ImGui::Text("%.2f - %.2f ms",lo,hi);
-            ImGui::PlotLines("##times",p.times.data(),int(p.count),p.count==p.times.size()?int(p.sample%p.times.size()):0,nullptr,0,40,{250,55});
-        }ImGui::End();}
+    p.performance_panel(settings,p.width,p.height);
+    p.input_panel(settings);
     ImGui::Render();
     const float black[4]{0,0,0,1};p.context->ClearRenderTargetView(p.target.Get(),black);
     auto *rtv=p.target.Get();p.context->OMSetRenderTargets(1,&rtv,nullptr);

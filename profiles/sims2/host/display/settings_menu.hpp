@@ -10,16 +10,20 @@ namespace sims2::display {
 namespace settings_ui {
 inline ImGuiStyle initialize_style() {
     ImGui::StyleColorsDark();
-    auto &style=ImGui::GetStyle();
-    style.WindowRounding=9;style.FrameRounding=5;style.WindowPadding={18,16};
-    style.ItemSpacing={10,8};style.FramePadding={10,6};
-    style.Colors[ImGuiCol_WindowBg]={.06f,.07f,.09f,.98f};
-    style.Colors[ImGuiCol_Header]={.29f,.56f,.78f,.4f};
+    auto &style = ImGui::GetStyle();
+    style.WindowRounding = 9;
+    style.FrameRounding = 5;
+    style.WindowPadding = {18, 16};
+    style.ItemSpacing = {10, 8};
+    style.FramePadding = {10, 6};
+    style.Colors[ImGuiCol_WindowBg] = {.06f, .07f, .09f, .98f};
+    style.Colors[ImGuiCol_Header] = {.29f, .56f, .78f, .4f};
     return style;
 }
 constexpr std::array<unsigned, 2> resolutions[]{{960, 544},   {1280, 800},  {1280, 720},  {1600, 900},
-                                                {1920, 1080}, {2560, 1080}, {2560, 1440}, {3440, 1440},
-                                                {3840, 2160}, {5120, 1440}};
+                                                {1680, 1050}, {1920, 1200}, {2560, 1600}, {3840, 1080},
+                                                {3840, 1600}, {1920, 1080}, {2560, 1080}, {2560, 1440},
+                                                {3440, 1440}, {3840, 2160}, {5120, 1440}};
 inline void row(const char *label) {
     ImGui::TableNextRow();
     ImGui::TableSetColumnIndex(0);
@@ -39,10 +43,67 @@ struct SettingsMenu {
     unsigned width{}, height{};
     float scale{1};
     HostSettings draft;
+    int capture_action = -1;
     bool opened{}, focus{}, hdr_active{}, hdr_supported{true};
     std::string status, output_status, backend = "Direct3D 11";
     std::array<float, 120> times{};
     unsigned sample{}, count{};
+    void performance_panel(const HostSettings &current, unsigned output_width, unsigned output_height) const {
+        if (!current.show_performance)
+            return;
+        ImGui::SetNextWindowPos({ImGui::GetIO().DisplaySize.x - 12, 12}, ImGuiCond_Always, {1, 0});
+        ImGui::SetNextWindowBgAlpha(.65f);
+        if (ImGui::Begin("Performance (F2)", nullptr,
+                         ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoInputs |
+                             ImGuiWindowFlags_NoSavedSettings)) {
+            float sum{}, lo = count ? times[0] : 0, hi{};
+            for (unsigned i = 0; i < count; ++i) {
+                sum += times[i];
+                lo = std::min(lo, times[i]);
+                hi = std::max(hi, times[i]);
+            }
+            float average = count ? sum / count : 0;
+            ImGui::Text("%s | %.1f FPS | %.2f ms", opened ? "Paused" : "Running",
+                        average > 0 ? 1000 / average : 0, average);
+            ImGui::Text("%s | output %u x %u", backend.c_str(), output_width, output_height);
+            auto factor = effective_render_scale(current, output_height);
+            ImGui::Text("Render %u x %u | aspect %s", settings_ui::render_dimension(480 * factor),
+                        settings_ui::render_dimension(272 * factor), aspect_name(current.aspect).data());
+            ImGui::Text("VSync %s | cap %u | %s", current.vsync ? "On" : "Off", current.fps_cap,
+                        hdr_active ? "HDR" : "SDR");
+            ImGui::Text("%.2f - %.2f ms", lo, hi);
+            ImGui::PlotLines("##times", times.data(), int(count),
+                             count == times.size() ? int(sample % times.size()) : 0, nullptr, 0,
+                             std::max(40.f, hi * 1.2f), {280, 60});
+        }
+        ImGui::End();
+    }
+    void input_panel(const HostSettings &current) const {
+        if (!current.input.input_hints || opened)
+            return;
+        ImGui::SetNextWindowPos({12, ImGui::GetIO().DisplaySize.y - 12}, ImGuiCond_Always, {0, 1});
+        ImGui::SetNextWindowBgAlpha(.65f);
+        if (ImGui::Begin("Input hints", nullptr,
+                         ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoInputs |
+                             ImGuiWindowFlags_NoSavedSettings)) {
+            ImGui::Text("Keyboard: %s interact | %s cancel",
+                        ctrl::key_name(current.input.keys[ctrl::Cross]).c_str(),
+                        ctrl::key_name(current.input.keys[ctrl::Circle]).c_str());
+            ImGui::Text("Move %s%s%s%s | camera %s/%s or RMB drag",
+                        ctrl::key_name(current.input.keys[ctrl::AnalogUp]).c_str(),
+                        ctrl::key_name(current.input.keys[ctrl::AnalogLeft]).c_str(),
+                        ctrl::key_name(current.input.keys[ctrl::AnalogDown]).c_str(),
+                        ctrl::key_name(current.input.keys[ctrl::AnalogRight]).c_str(),
+                        ctrl::key_name(current.input.keys[ctrl::LeftShoulder]).c_str(),
+                        ctrl::key_name(current.input.keys[ctrl::RightShoulder]).c_str());
+            auto physical = ctrl::controller_names(current.input.controller_labels);
+            ImGui::Text("Controller: %s interact | %s cancel", physical[current.input.gamepad[ctrl::Cross]],
+                        physical[current.input.gamepad[ctrl::Circle]]);
+            ImGui::TextUnformatted(
+                "PSP prompts: Cross = interact; Circle = cancel. F1 settings / F2 performance.");
+        }
+        ImGui::End();
+    }
     SettingsAction menu(const HostSettings &current) {
         using namespace settings_ui;
         SettingsAction result;
@@ -243,18 +304,112 @@ struct SettingsMenu {
                         draft.stick_deadzone = unsigned(deadzone);
                     ImGui::Checkbox("Right stick camera (left/right)", &draft.right_stick_camera);
                     note("Maps right-stick horizontal movement to the PSP L/R camera buttons.");
-                    ImGui::TextUnformatted("SDL controllers / Steam Deck");
-                    ImGui::Separator();
-                    ImGui::TextUnformatted(
-                        "A / B / X / Y  ->  Cross / Circle / Square / Triangle\nLB / RB  ->  L / R\nMenu / "
-                        "View  ->  Start / Select\nLeft stick and d-pad are supported.");
-                    ImGui::Spacing();
-                    ImGui::TextUnformatted("Keyboard");
-                    ImGui::Separator();
-                    ImGui::TextUnformatted(
-                        "X / Z / A / S  ->  Cross / Circle / Square / Triangle\nQ / E  ->  L / R\nEnter / "
-                        "Backspace  ->  Start / Select\nI J K L  ->  Analog stick\nArrow keys  ->  D-pad\nF1 "
-                        "(SDL: L3 + R3)  ->  Settings     F2  ->  Performance");
+                    int threshold = int(draft.input.camera_threshold);
+                    if (ImGui::SliderInt("Right stick activation", &threshold, 5, 95, "%d %%"))
+                        draft.input.camera_threshold = unsigned(threshold);
+                    ImGui::Checkbox("Invert camera left/right", &draft.input.invert_camera);
+                    ImGui::Checkbox("Mouse camera (hold right button)", &draft.input.mouse_camera);
+                    int sensitivity = int(draft.input.mouse_sensitivity),
+                        pulse = int(draft.input.mouse_pulse_ms);
+                    if (ImGui::SliderInt("Mouse sensitivity", &sensitivity, 10, 300, "%d %%"))
+                        draft.input.mouse_sensitivity = unsigned(sensitivity);
+                    if (ImGui::SliderInt("Camera pulse length", &pulse, 20, 250, "%d ms"))
+                        draft.input.mouse_pulse_ms = unsigned(pulse);
+                    note("PSP camera rotation uses L/R buttons. Mouse drag and right stick emulate those "
+                         "buttons; this is not an analog zoom patch.");
+                    bool repeat = draft.input.menu_repeat_ms != 0;
+                    if (ImGui::Checkbox("Limit held D-pad repeat", &repeat))
+                        draft.input.menu_repeat_ms = repeat ? 160 : 0;
+                    if (repeat) {
+                        int ms = int(draft.input.menu_repeat_ms);
+                        if (ImGui::SliderInt("Repeat interval", &ms, 80, 500, "%d ms"))
+                            draft.input.menu_repeat_ms = unsigned(ms);
+                    }
+                    note("Repeat filtering affects every D-pad action; analog movement is unchanged. Off "
+                         "preserves native holds.");
+                    ImGui::Checkbox("Show input hints", &draft.input.input_hints);
+                    if (ImGui::Button("Classic keyboard")) {
+                        draft.input.keys = ctrl::classic_keys;
+                        capture_action = -1;
+                    }
+                    ImGui::SameLine();
+                    if (ImGui::Button("WASD keyboard")) {
+                        draft.input.keys = ctrl::wasd_keys;
+                        capture_action = -1;
+                    }
+                    if (ImGui::BeginTable("keybindings", 2, ImGuiTableFlags_SizingStretchProp)) {
+                        for (unsigned i = 0; i < ctrl::ActionCount; ++i) {
+                            ImGui::PushID(int(i));
+                            ImGui::TableNextRow();
+                            ImGui::TableNextColumn();
+                            ImGui::TextUnformatted(ctrl::action_names[i]);
+                            ImGui::TableNextColumn();
+                            const auto label = capture_action == int(i) ? std::string("Press a key...")
+                                                                        : ctrl::key_name(draft.input.keys[i]);
+                            if (ImGui::Button(label.c_str(), {-1, 0}))
+                                capture_action = int(i);
+                            ImGui::PopID();
+                        }
+                        ImGui::EndTable();
+                    }
+                    if (capture_action >= 0) {
+                        note("Press a letter, number, Space, Enter, Backspace, Tab or arrow key. Delete "
+                             "unbinds; Escape cancels. F1/F2 stay reserved.");
+                        if (ImGui::IsKeyPressed(ImGuiKey_Escape))
+                            capture_action = -1;
+                        else if (ImGui::IsKeyPressed(ImGuiKey_Delete)) {
+                            draft.input.keys[unsigned(capture_action)] = 0;
+                            capture_action = -1;
+                        } else {
+                            unsigned code = 0;
+                            for (int k = int(ImGuiKey_A); k <= int(ImGuiKey_Z); ++k)
+                                if (ImGui::IsKeyPressed(ImGuiKey(k)))
+                                    code = unsigned('A' + k - int(ImGuiKey_A));
+                            for (int k = int(ImGuiKey_0); k <= int(ImGuiKey_9); ++k)
+                                if (ImGui::IsKeyPressed(ImGuiKey(k)))
+                                    code = unsigned('0' + k - int(ImGuiKey_0));
+                            const std::pair<ImGuiKey, unsigned> special[]{
+                                {ImGuiKey_Space, ' '},
+                                {ImGuiKey_Enter, ctrl::Enter},
+                                {ImGuiKey_Backspace, ctrl::Backspace},
+                                {ImGuiKey_Tab, ctrl::Tab},
+                                {ImGuiKey_UpArrow, ctrl::ArrowUp},
+                                {ImGuiKey_DownArrow, ctrl::ArrowDown},
+                                {ImGuiKey_LeftArrow, ctrl::ArrowLeft},
+                                {ImGuiKey_RightArrow, ctrl::ArrowRight}};
+                            for (auto [key, value] : special)
+                                if (ImGui::IsKeyPressed(key))
+                                    code = value;
+                            if (code) {
+                                draft.input.keys[unsigned(capture_action)] = code;
+                                capture_action = -1;
+                            }
+                        }
+                    }
+                    ImGui::SeparatorText("Controller button bindings");
+                    int labels = int(draft.input.controller_labels);
+                    if (ImGui::Combo("Controller labels", &labels,
+                                     "Xbox / Steam Deck\0PlayStation\0Nintendo\0Physical positions\0"))
+                        draft.input.controller_labels = unsigned(labels);
+                    auto pad_names = ctrl::controller_names(draft.input.controller_labels);
+                    if (ImGui::Button("Default controller"))
+                        draft.input.gamepad = ctrl::default_gamepad;
+                    for (unsigned i = 0; i < 12; ++i) {
+                        ImGui::PushID(100 + int(i));
+                        int button = int(draft.input.gamepad[i]);
+                        if (ImGui::Combo(ctrl::action_names[i], &button, pad_names, 15))
+                            draft.input.gamepad[i] = unsigned(button);
+                        ImGui::PopID();
+                    }
+                    for (unsigned i = 0; i < 2; ++i) {
+                        auto &binding = i ? draft.input.wheel_down : draft.input.wheel_up;
+                        int action = int(binding);
+                        if (ImGui::Combo(i ? "Wheel down" : "Wheel up", &action, ctrl::action_names.data(),
+                                         12))
+                            binding = unsigned(action);
+                    }
+                    note("F1 / SDL L3+R3: settings. F2: performance. Bindings apply after Apply/Save. Guide "
+                         "may be reserved by the operating system.");
                     ImGui::EndTabItem();
                 }
                 ImGui::EndTabBar();

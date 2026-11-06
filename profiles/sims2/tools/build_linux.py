@@ -7,6 +7,7 @@ from pathlib import Path
 import shutil
 import subprocess
 from prepare import prepare
+from check_local_build import check_local_build
 
 ROOT=Path(__file__).resolve().parents[3]
 PROFILE=ROOT/"profiles/sims2"
@@ -38,9 +39,10 @@ def main():
         prepare(iso,False,game,report_dir=workspace/"analysis")
         run(framework/"psp_recomp",game/"PSP_GAME/SYSDIR/BOOT.BIN","--auto",generated,identity["load_base"],identity["unit_span_bytes"])
         if args.generate_only:return
-        run("cmake","-S",ROOT,"-B",build,"-G","Ninja","-DCMAKE_BUILD_TYPE=Release","-DPSPRECOMP_PROFILE=sims2","-DPSPRECOMP_BUILD_TESTS=OFF","-DPSPRECOMP_BUILD_PROFILE_TESTS=OFF","-DSIMS2_GRAPHICS_BACKEND=VULKAN",f"-DSIMS2_GENERATED_DIR={generated}")
+        run("cmake","-S",ROOT,"-B",build,"-G","Ninja","-DCMAKE_BUILD_TYPE=Release","-DPSPRECOMP_PROFILE=sims2", "-DSIMS2_HOST_TESTS_ONLY=OFF", "-DSIMS2_TIMING_RESEARCH=OFF","-DPSPRECOMP_BUILD_TESTS=OFF","-DPSPRECOMP_BUILD_PROFILE_TESTS=OFF","-DSIMS2_GRAPHICS_BACKEND=VULKAN",f"-DSIMS2_GENERATED_DIR={generated}")
         run("cmake","--build",build,"--target","sims2","--parallel",args.jobs)
         stage_install(iso,workspace,build,install,identity)
+        check_local_build(iso,install,workspace/"validation")
 
 def stage_install(iso,workspace,build,install,identity):
     run("cmake","--install",build,"--prefix",install,"--component","sims2")

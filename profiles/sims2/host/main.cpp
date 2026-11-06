@@ -37,6 +37,7 @@
 #include <chrono>
 #include <thread>
 #include <sstream>
+#include <map>
 
 namespace psprecomp { void register_generated_functions(Runtime &); }
 
@@ -168,7 +169,27 @@ int main(int argc, char **argv) {
         });
 #endif
         sims2::display::Display display;
-        sims2::display::register_display(display, kernel, *runtime);
+        std::map<std::pair<std::string,std::uint32_t>,std::uint64_t> timing_calls;
+        const auto *timing_path=std::getenv("SIMS2_TIMING_TRACE");
+        sims2::display::VblankWaitHook research_wait;
+        if(const auto *value=std::getenv("SIMS2_EXPERIMENTAL_RENDER_HZ")){
+#if defined(SIMS2_TIMING_RESEARCH)
+            unsigned hz{};const std::string_view text=value;auto parsed=std::from_chars(text.data(),text.data()+text.size(),hz);
+            if(parsed.ec!=std::errc{}||parsed.ptr!=text.data()+text.size()||hz<60||hz>240||!timing_path||!std::getenv("SIMS2_MEMSTICK")||!std::getenv("SIMS2_STOP_AFTER_FRAMES"))
+                throw psprecomp::Error("Timing research requires 60..240 Hz, explicit isolated memstick, timing trace and bounded frames");
+            research_wait=[hz](psprecomp::Runtime &,const auto &cpu,std::uint64_t now)->std::optional<std::uint64_t>{
+                // Only the measured framebuffer-loop caller. Kernel vcount,
+                // audio, callbacks and the secondary startup wait stay native.
+                if(cpu.gpr[31]==0x08939000u)return now+1000000u/hz;return std::nullopt;
+            };
+            std::cerr<<"[research] Unverified render wait experiment: "<<hz<<" Hz; never use production saves\n";
+#else
+            (void)value;throw psprecomp::Error("This production build does not enable timing research");
+#endif
+        }
+        sims2::display::register_display(display,kernel,*runtime,{},std::move(research_wait),timing_path?sims2::display::TimingObserver([&](const char *kind,const auto &cpu,std::uint64_t){
+            ++timing_calls[{kind,cpu.gpr[31]}];
+        }):sims2::display::TimingObserver{});
         sims2::audio::Audio audio(kernel);
         sims2::audio::register_audio(audio, *runtime);
         sims2::audio::AtracLibrary atrac(sims2::audio::make_ffmpeg_decoder);
@@ -269,7 +290,7 @@ int main(int argc, char **argv) {
                     if (const auto *state_path = std::getenv("SIMS2_STATE_JSON")) {
                         std::ofstream state(state_path);
                         state << "{\"frames\":" << display.framebuffer_requests() << ",\"guest_us\":" << kernel.now_us()
-                            << ",\"gpu_draws\":" << renderer.draws() << "}\n";
+                            << ",\"gpu_draws\":" << renderer.draws() << ",\"presentations\":" << (window?window->presented_frames():0) << "}\n";
                     }
                     while (buttons == "PAUSE") {
                         std::this_thread::sleep_for(std::chrono::milliseconds(10));
@@ -284,7 +305,7 @@ int main(int argc, char **argv) {
             if (const auto *path = std::getenv("SIMS2_STATE_JSON"); path && (paused || display.framebuffer_requests() % 30u == 0u)) {
                 std::ofstream state(path);
                 state << "{\"frames\":" << display.framebuffer_requests() << ",\"guest_us\":" << kernel.now_us()
-                      << ",\"gpu_draws\":" << renderer.draws() << "}\n";
+                      << ",\"gpu_draws\":" << renderer.draws() << ",\"presentations\":" << (window?window->presented_frames():0) << "}\n";
             }
             if (const auto *limit = std::getenv("SIMS2_STOP_AFTER_FRAMES")) {
                 if (display.framebuffer_requests() >= std::strtoull(limit, nullptr, 10)) runtime->stop("Framebuffer diagnostic limit reached");
@@ -327,6 +348,8 @@ int main(int argc, char **argv) {
 #if defined(_WIN32) || defined(SIMS2_VULKAN)
         renderer.flush(runtime->memory());
         if (window) if (const auto *path = std::getenv("SIMS2_CAPTURE_LAST_BMP")) window->capture(path);
+        if(timing_path){std::ofstream trace(timing_path);trace<<"{\"native_vblank_hz\":59.94005994,\"calls\":[";bool first=true;
+            for(const auto &[key,count]:timing_calls){if(!first)trace<<',';first=false;trace<<"{\"kind\":\""<<key.first<<"\",\"return_pc\":\""<<psprecomp::hex32(key.second)<<"\",\"count\":"<<count<<'}';}trace<<"]}\n";}
         std::cout << "GPU draws rendered: " << renderer.draws() << '\n';
 #endif
         std::cout << "PC: " << psprecomp::hex32(runtime->cpu().pc)
@@ -360,7 +383,8 @@ int main(int argc, char **argv) {
             catch (const psprecomp::Error &) {}
         }
         if (!execution_error.empty()) { std::cerr << execution_error << '\n'; return 1; }
-        return 3; // A probe stop is never reported as a successfully running game.
+        if(runtime->stop_reason()=="Window closed")return 0;
+        return 3; // Diagnostic/unsupported stops remain distinct from a normal user exit.
     } catch (const std::exception &error) {
         std::cerr << error.what() << '\n';
         return 1;

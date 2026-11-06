@@ -1,0 +1,88 @@
+{
+  "format": 1,
+  "scenario": "fresh boot, isolated empty save, no input",
+  "hardware": "Windows 11 / Ryzen 7 9800X3D / AMD driver 32.0.21045.16010; selected adapter recorded per case",
+  "platform": "Windows",
+  "architecture": "AMD64",
+  "paced": true,
+  "presentation_mode": "hidden/offscreen",
+  "experimental_render_hz": 0,
+  "warmup_frames": 600,
+  "cases": [
+    {
+      "adapter": "AMD Radeon RX 6950 XT",
+      "scale": 1,
+      "cap": 30,
+      "output": [
+        1920,
+        1080
+      ],
+      "total_elapsed_seconds": 27.422,
+      "peak_working_set_mib": 156.23,
+      "frames": 900,
+      "guest_us": 27510816,
+      "gpu_draws": 40684,
+      "presentations": 659,
+      "measured_frames": 300,
+      "frame_ms_p50": 16.751,
+      "frame_ms_p95": 17.336,
+      "frame_ms_p99": 17.622,
+      "request_fps": 60.022,
+      "guest_seconds": 5.005,
+      "measured_wall_seconds": 4.998131,
+      "guest_to_wall_ratio": 1.0014,
+      "frames_over_33ms": 0
+    },
+    {
+      "adapter": "AMD Radeon RX 6950 XT",
+      "scale": 1,
+      "cap": 60,
+      "output": [
+        1920,
+        1080
+      ],
+      "total_elapsed_seconds": 27.422,
+      "peak_working_set_mib": 155.67,
+      "frames": 900,
+      "guest_us": 27510816,
+      "gpu_draws": 40684,
+      "presentations": 897,
+      "measured_frames": 300,
+      "frame_ms_p50": 16.633,
+      "frame_ms_p95": 17.119,
+      "frame_ms_p99": 17.207,
+      "request_fps": 60.028,
+      "guest_seconds": 5.005,
+      "measured_wall_seconds": 4.997669,
+      "guest_to_wall_ratio": 1.0015,
+      "frames_over_33ms": 0
+    },
+    {
+      "adapter": "AMD Radeon RX 6950 XT",
+      "scale": 4,
+      "cap": 60,
+      "output": [
+        1920,
+        1080
+      ],
+      "total_elapsed_seconds": 27.422,
+      "peak_working_set_mib": 157.25,
+      "frames": 900,
+      "guest_us": 27510816,
+      "gpu_draws": 40684,
+      "presentations": 897,
+      "measured_frames": 300,
+      "frame_ms_p50": 16.637,
+      "frame_ms_p95": 17.078,
+      "frame_ms_p99": 17.272,
+      "request_fps": 60.029,
+      "guest_seconds": 5.005,
+      "measured_wall_seconds": 4.997612,
+      "guest_to_wall_ratio": 1.0015,
+      "frames_over_33ms": 0
+    }
+  ],
+  "build_label": "Development snapshot before v0.2.0; runtime hash was not captured for this initial baseline",
+  "source_revision_base": "29deaecb105a",
+  "source_dirty": true
+}

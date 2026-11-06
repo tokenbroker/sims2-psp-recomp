@@ -1,3 +1,4 @@
+#include "ctrl/host_input.hpp"
 #include "ctrl/native_gamepad.hpp"
 #include "display/native_window.hpp"
 #include "display/presentation_limiter.hpp"
@@ -27,6 +28,8 @@ struct NativeWindow::Impl : SettingsMenu {
     ImGuiContext *gui{};
     ImGuiStyle base;
     std::unique_ptr<ctrl::NativeGamepad> gamepad;
+    ctrl::HostInput host_input;
+    float wheel{};
     HostSettings current;
     std::filesystem::path settings_file = host_settings_path();
     std::function<void(float)> audio_control;
@@ -84,6 +87,8 @@ struct NativeWindow::Impl : SettingsMenu {
         SDL_Event event;
         while (SDL_PollEvent(&event)) {
             ImGui_ImplSDL3_ProcessEvent(&event);
+            if (event.type == SDL_EVENT_MOUSE_WHEEL)
+                wheel += event.wheel.y;
             if (event.type == SDL_EVENT_QUIT || event.type == SDL_EVENT_WINDOW_CLOSE_REQUESTED)
                 closed = true;
             if (event.type == SDL_EVENT_KEY_DOWN && !event.key.repeat) {
@@ -244,25 +249,19 @@ struct NativeWindow::Impl : SettingsMenu {
         if (opened)
             previous = {};
         auto logical = ImGui::GetIO().DisplaySize;
-        const float desired=std::clamp(std::round(std::max(1.f,logical.y/1080.f)*4)/4,1.f,3.f);
-        if(scale!=desired){scale=desired;ImGui::GetStyle()=base;ImGui::GetStyle().ScaleAllSizes(scale);ImGui::GetIO().FontGlobalScale=scale;}
+        const float desired = std::clamp(std::round(std::max(1.f, logical.y / 1080.f) * 4) / 4, 1.f, 3.f);
+        if (scale != desired) {
+            scale = desired;
+            ImGui::GetStyle() = base;
+            ImGui::GetStyle().ScaleAllSizes(scale);
+            ImGui::GetIO().FontGlobalScale = scale;
+        }
         width = unsigned(logical.x);
         height = unsigned(logical.y);
         SettingsAction action = menu(current);
         save_menu();
-        if (current.show_performance) {
-            float total = 0;
-            for (unsigned i = 0; i < count; ++i)
-                total += times[i];
-            float ms = count ? total / count : 0;
-            ImGui::SetNextWindowPos({10, 10}, ImGuiCond_Always);
-            ImGui::SetNextWindowBgAlpha(.75f);
-            if (ImGui::Begin("Performance", nullptr,
-                             ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize |
-                                 ImGuiWindowFlags_NoInputs))
-                ImGui::Text("%.1f FPS | %.2f ms | Vulkan", ms > 0 ? 1000 / ms : 0, ms);
-            ImGui::End();
-        }
+        performance_panel(current, sw, sh);
+        input_panel(current);
         ImGui::Render();
         Imgui_ImplSDLGPU3_PrepareDrawData(ImGui::GetDrawData(), commands);
         SDL_GPUColorTargetInfo target{};
@@ -293,7 +292,7 @@ NativeWindow::NativeWindow(bool visible, gpu::NativeRenderer *renderer, bool hid
         flags |= SDL_WINDOW_HIDDEN;
     p.window = SDL_CreateWindow("The Sims 2 PSP", 960, 544, flags);
     check(p.window, "Create SDL window");
-    SDL_SetWindowMinimumSize(p.window,480,272);
+    SDL_SetWindowMinimumSize(p.window, 480, 272);
     check(SDL_ClaimWindowForGPUDevice(p.device, p.window), "Create Vulkan surface");
     p.claimed = true;
     check(SDL_SetGPUSwapchainParameters(p.device, p.window, SDL_GPU_SWAPCHAINCOMPOSITION_SDR,
@@ -308,7 +307,7 @@ NativeWindow::NativeWindow(bool visible, gpu::NativeRenderer *renderer, bool hid
     ImFontConfig font;
     font.SizePixels = 18;
     io.Fonts->AddFontDefault(&font);
-    p.base=settings_ui::initialize_style();
+    p.base = settings_ui::initialize_style();
     check(ImGui_ImplSDL3_InitForSDLGPU(p.window), "Initialize SDL settings input");
     p.platform = true;
     ImGui_ImplSDLGPU3_InitInfo init{};
@@ -366,14 +365,18 @@ void NativeWindow::apply_settings(HostSettings settings) {
             SDL_SetWindowSize(p.window, w, h);
         } else {
             SDL_DisplayMode mode{};
-            const bool exclusive=settings.mode==WindowMode::Fullscreen &&
-                SDL_GetClosestFullscreenDisplayMode(SDL_GetDisplayForWindow(p.window),w,h,0,false,&mode) &&
-                SDL_SetWindowFullscreenMode(p.window,&mode);
-            if(!exclusive)SDL_SetWindowFullscreenMode(p.window,nullptr);
+            const bool exclusive = settings.mode == WindowMode::Fullscreen &&
+                                   SDL_GetClosestFullscreenDisplayMode(SDL_GetDisplayForWindow(p.window), w,
+                                                                       h, 0, false, &mode) &&
+                                   SDL_SetWindowFullscreenMode(p.window, &mode);
+            if (!exclusive)
+                SDL_SetWindowFullscreenMode(p.window, nullptr);
             check(SDL_SetWindowFullscreen(p.window, true), "Set fullscreen");
         }
     }
     p.gamepad->set_options(settings.stick_deadzone, settings.right_stick_camera);
+    p.gamepad->set_input_options(settings.input);
+    p.host_input.release();
     p.renderer->set_anisotropy(settings.anisotropy);
     p.camera();
     p.limiter.reset();
@@ -402,28 +405,32 @@ bool NativeWindow::present(const psprecomp::GuestMemory &memory, const Display::
         return false;
     auto pad = p.gamepad->sample(p.focused() && !p.opened);
     const bool *keys = SDL_GetKeyboardState(nullptr);
-    bool any = false;
-    for (int i = 0; i < SDL_SCANCODE_COUNT; ++i)
-        any |= keys[i];
-    if (!any && !pad.buttons)
-        p.suppress = false;
-    if (!p.opened && p.focused() && !p.suppress) {
-        constexpr std::pair<SDL_Scancode, std::uint32_t> mapping[]{
-            {SDL_SCANCODE_X, ctrl::kButtonCross},      {SDL_SCANCODE_Z, ctrl::kButtonCircle},
-            {SDL_SCANCODE_A, ctrl::kButtonSquare},     {SDL_SCANCODE_S, ctrl::kButtonTriangle},
-            {SDL_SCANCODE_Q, ctrl::kButtonL},          {SDL_SCANCODE_E, ctrl::kButtonR},
-            {SDL_SCANCODE_RETURN, ctrl::kButtonStart}, {SDL_SCANCODE_BACKSPACE, ctrl::kButtonSelect},
-            {SDL_SCANCODE_UP, ctrl::kButtonUp},        {SDL_SCANCODE_DOWN, ctrl::kButtonDown},
-            {SDL_SCANCODE_LEFT, ctrl::kButtonLeft},    {SDL_SCANCODE_RIGHT, ctrl::kButtonRight}};
-        for (auto [key, button] : mapping)
-            if (keys[key])
-                pad.buttons |= button;
-        if (keys[SDL_SCANCODE_J] || keys[SDL_SCANCODE_L])
-            pad.lx = keys[SDL_SCANCODE_J] ? 0 : 255;
-        if (keys[SDL_SCANCODE_I] || keys[SDL_SCANCODE_K])
-            pad.ly = keys[SDL_SCANCODE_I] ? 0 : 255;
-    } else
-        pad = {};
+    auto key = [&](unsigned code) {
+        SDL_Scancode sc = SDL_SCANCODE_UNKNOWN;
+        if (code >= 'A' && code <= 'Z')
+            sc = SDL_Scancode(SDL_SCANCODE_A + code - 'A');
+        else if (code >= '1' && code <= '9')
+            sc = SDL_Scancode(SDL_SCANCODE_1 + code - '1');
+        else if (code == '0')
+            sc = SDL_SCANCODE_0;
+        else if (code == ' ')
+            sc = SDL_SCANCODE_SPACE;
+        else if (code >= ctrl::Enter && code <= ctrl::ArrowRight) {
+            constexpr SDL_Scancode special[]{SDL_SCANCODE_RETURN, SDL_SCANCODE_BACKSPACE, SDL_SCANCODE_ESCAPE,
+                                             SDL_SCANCODE_TAB,    SDL_SCANCODE_UP,        SDL_SCANCODE_DOWN,
+                                             SDL_SCANCODE_LEFT,   SDL_SCANCODE_RIGHT};
+            sc = special[code - ctrl::Enter];
+        }
+        return sc != SDL_SCANCODE_UNKNOWN && keys[sc];
+    };
+    ctrl::MouseSnapshot mouse;
+    auto buttons = SDL_GetMouseState(&mouse.x, &mouse.y);
+    mouse.right = (buttons & SDL_BUTTON_RMASK) != 0;
+    mouse.wheel = p.wheel;
+    p.wheel = 0;
+    const auto host_us = std::uint64_t(SDL_GetTicksNS() / 1000);
+    pad = p.host_input.sample(p.current.input, key, mouse, pad, p.focused() && !p.opened && !p.slot_open,
+                              host_us);
     controller.set_pad(pad, now_us);
     const auto bpp = frame.pixel_format == 3 ? 4u : 2u;
     for (unsigned y = 0; y < 272; ++y)
@@ -479,7 +486,10 @@ bool NativeWindow::present(const psprecomp::GuestMemory &memory, const Display::
         SDL_Delay(8);
     }
     if (paused) {
+        p.wheel = 0;
+        p.host_input.release();
         p.suppress = true;
+        p.host_input.release();
         p.reset_pacing = true;
     }
     return !p.closed;
@@ -487,6 +497,8 @@ bool NativeWindow::present(const psprecomp::GuestMemory &memory, const Display::
 std::optional<std::string> NativeWindow::select_savedata(std::uint32_t mode,
                                                          const std::vector<std::string> &slots) {
     auto &p = *impl_;
+    p.host_input.release();
+    p.wheel = 0;
     p.slot_mode = mode;
     p.slots = slots;
     p.slot_open = true;
@@ -499,6 +511,8 @@ std::optional<std::string> NativeWindow::select_savedata(std::uint32_t mode,
         SDL_Delay(8);
     }
     p.slot_open = false;
+    p.host_input.release();
+    p.wheel = 0;
     p.suppress = true;
     p.reset_pacing = true;
     return p.slot_choice;

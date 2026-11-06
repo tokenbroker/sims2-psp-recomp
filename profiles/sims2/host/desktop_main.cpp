@@ -62,7 +62,7 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR, int) {
     for (const auto name : {L"SIMS2_STOP_AFTER_FRAMES", L"SIMS2_INPUT_SCRIPT", L"SIMS2_LIVE_INPUT",
             L"SIMS2_STATE_JSON", L"SIMS2_CAPTURE_BMP", L"SIMS2_CAPTURE_LAST_BMP", L"SIMS2_SAVE_SLOT",
             L"SIMS2_PACE", L"SIMS2_AUDIO", L"SIMS2_AUDIO_SILENT", L"SIMS2_FRAME_CSV",
-            L"SIMS2_TRACE_UI", L"SIMS2_TRACE_UI_US"})
+            L"SIMS2_TRACE_UI", L"SIMS2_TRACE_UI_US", L"SIMS2_TIMING_TRACE", L"SIMS2_EXPERIMENTAL_RENDER_HZ", L"PSPRECOMP_HLE_REGISTRY"})
         SetEnvironmentVariableW(name, nullptr);
     wchar_t local[32768]{};
     if (!GetEnvironmentVariableW(L"LOCALAPPDATA", local, 32768)) return fail(L"Cannot locate the local application data folder.");

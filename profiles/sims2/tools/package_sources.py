@@ -48,13 +48,13 @@ def source_files():
         "tools/analyzer_main.cpp", "tools/codegen_main.cpp", "tools/dump_function.cpp", "tools/check_public_tree.py",
         "profiles/sims2/CMakeLists.txt", "profiles/sims2/README.md",
         "profiles/sims2/THIRD_PARTY.md", "profiles/sims2/config/identity.json", "profiles/sims2/config/dependencies.json",
-        "build.py", "requirements-build.txt", "CONTRIBUTING.md",
+        "build.py", "requirements-build.txt", "CONTRIBUTING.md", "setup.sh", "launch.sh",
         "profiles/sims2/launcher/recomplauncher.json",
         "profiles/sims2/launcher/CMakeLists.txt",
         "profiles/sims2/third_party/SDL3/LICENSE.txt",
     } | NATIVE_DEPENDENCIES
     for name in ("build_from_iso.py", "check_local_build.py", "prepare.py",
-                 "package_local.py", "package_sources.py", "setup_process.py", "package_bootstrap.py", "fetch_dependencies.py", "build_linux.py", "embed_spirv.py"):
+                 "package_local.py", "package_sources.py", "setup_process.py", "package_bootstrap.py", "fetch_dependencies.py", "build_linux.py", "embed_spirv.py", "benchmark.py", "doctor.py", "package_release.py", "coverage_report.py"):
         files.add("profiles/sims2/tools/" + name)
     for directory in ("include", "src", "tests", "profiles/sims2/host", "profiles/sims2/tests",
                       "profiles/sims2/third_party/SDL3/include",
@@ -67,6 +67,8 @@ def source_files():
                      for path in (PROFILE / "third_party" / directory).rglob("*") if path.is_file())
     files.add("profiles/sims2/third_party/ffmpeg/COPYING.LGPLv2.1")
     files.update(path.relative_to(ROOT).as_posix() for path in (ROOT / "docs").glob("*.md"))
+    files.update(path.relative_to(ROOT).as_posix() for path in (ROOT / "docs/data").glob("*.json"))
+    files.add("docs/images/windows-menu-baseline.png")
     for name in files:
         path = ROOT / name
         if not path.is_file() or not path.resolve().is_relative_to(ROOT):

@@ -1,0 +1,19 @@
+{
+  "scenario": "900 framebuffer requests, fresh empty save, no input",
+  "frames": 900,
+  "guest_us": 27510816,
+  "gpu_draws": 40684,
+  "native_vblank_hz": 59.94005994,
+  "calls": [
+    {
+      "kind": "wait_start_cb",
+      "return_pc": "0x08939000",
+      "count": 896
+    },
+    {
+      "kind": "wait_start_cb",
+      "return_pc": "0x0897C0F0",
+      "count": 240
+    }
+  ]
+}

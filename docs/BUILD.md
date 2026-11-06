@@ -125,3 +125,33 @@ Install the Vulkan SDK (providing `glslangValidator` on PATH), then use
 This builds the SDL/Vulkan shell with the same F1 menu. Use a separate workspace
 from the D3D11 build. Windows defaults to D3D11; switching backends currently
 requires choosing the build, rather than changing a live renderer in F1.
+
+## Source-installer releases
+
+The Windows setup zip carries Python, the host/recompiler sources, development
+SDKs and a host-only launcher. Import it into RecompLauncher and select the USA
+ISO. Its first prepare step compiles locally and validates startup with an
+isolated memory stick. The Linux setup archive carries source, setup.sh and
+launch.sh plus a launcher manifest; it needs the listed system development tools
+and compiles locally too. Both builds force host-test and timing-research modes
+off for the game. Normal window close returns success; bounded diagnostic stops
+remain distinct error/status codes.
+
+Public assets contain no BOOT.BIN, ISO, saves, generated AOT code or playable game
+binary. Do not upload prepared work/ or out/ directories. Release filenames use
+win64/linux-x64 setup labels because RecompLauncher excludes assets whose names
+contain source/debug/symbols; release notes explicitly identify them as source
+installers. Shell scripts are shipped with LF endings and executable permissions.
+
+Synthetic host checks can run without a disc:
+
+```sh
+cmake -S . -B out/host-tests -DPSPRECOMP_PROFILE=sims2 -DSIMS2_HOST_TESTS_ONLY=ON
+cmake --build out/host-tests --config Release --parallel 2
+ctest --test-dir out/host-tests -C Release --output-on-failure
+```
+
+On Linux install the listed dependencies and run display tests under Xvfb or a
+headless compositor. The empty registration fixture cannot run a game and is
+never used by ISO setup. docs/ci-example.yml contains the Windows/Linux workflow;
+GitHub workflow publication requires the workflow OAuth scope.

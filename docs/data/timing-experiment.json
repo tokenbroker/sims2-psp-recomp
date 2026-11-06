@@ -1,0 +1,22 @@
+{
+  "scenario": "fresh boot, unpaced, software Vulkan, concurrent compilation; not performance data",
+  "conclusion": "Shortening the observed render wait alone did not unlock the steady-state menu cadence. Production timing remains native.",
+  "runs": [
+    {
+      "experiment_render_hz": 0,
+      "frames": 900,
+      "guest_us": 27510816,
+      "gpu_draws": 40684,
+      "presentations": 0,
+      "last_300_guest_request_hz": 59.94006
+    },
+    {
+      "experiment_render_hz": 120,
+      "frames": 900,
+      "guest_us": 27460766,
+      "gpu_draws": 40684,
+      "presentations": 0,
+      "last_300_guest_request_hz": 59.94006
+    }
+  ]
+}

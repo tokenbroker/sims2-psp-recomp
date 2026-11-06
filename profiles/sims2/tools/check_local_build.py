@@ -15,23 +15,26 @@ from setup_process import external_dll_search
 def check_local_build(iso, install, output):
     iso, install, output = iso.resolve(), install.resolve(), output.resolve()
     prepare(iso, False, verify_only=True)
-    probe = install / "sims2_probe.exe"
+    probe = install / ("sims2_probe.exe" if os.name=="nt" else "sims2_probe")
     boot = install / "game/PSP_GAME/SYSDIR/BOOT.BIN"
     if not probe.is_file() or not boot.is_file():
-        raise RuntimeError("Package must contain sims2_probe.exe and prepared BOOT.BIN")
+        raise RuntimeError("Package must contain its native sims2_probe and prepared BOOT.BIN")
     output.mkdir(parents=True, exist_ok=True)
     state = output / "startup-state.json"
     capture = output / "startup.bmp"
     state.unlink(missing_ok=True)
     capture.unlink(missing_ok=True)
+    settings=output/"validation-settings.ini"
+    settings.write_text("width=480\nheight=272\nrender_scale=1\nvsync=0\n")
     env = {key: value for key, value in os.environ.items()
            if not key.startswith(("SIMS2_", "PSPRECOMP_"))}
     with tempfile.TemporaryDirectory(prefix="startup-memstick-", dir=output) as memory_stick:
         # Verify the cleanup target remains inside this diagnostic output folder.
         if not Path(memory_stick).resolve().is_relative_to(output):
             raise RuntimeError("Unexpected temporary memory-stick path")
-        env.update({"SIMS2_MEMSTICK": memory_stick, "SIMS2_STOP_AFTER_FRAMES": "900",
+        env.update({"SIMS2_SETTINGS_PATH":str(settings),"SIMS2_MEMSTICK": memory_stick, "SIMS2_STOP_AFTER_FRAMES": "900",
                     "SIMS2_STATE_JSON": str(state), "SIMS2_CAPTURE_LAST_BMP": str(capture)})
+        if os.name!="nt" and not env.get("DISPLAY") and not env.get("WAYLAND_DISPLAY"):env["SDL_VIDEO_DRIVER"]="offscreen"
         try:
             with external_dll_search():
                 result = subprocess.run([str(probe), str(boot), str(iso), "--max-dispatches", "unlimited"],

@@ -18,7 +18,7 @@ int main(int argc, char **argv) {
     for (auto name :
          {"SIMS2_STOP_AFTER_FRAMES", "SIMS2_INPUT_SCRIPT", "SIMS2_LIVE_INPUT", "SIMS2_STATE_JSON",
           "SIMS2_CAPTURE_BMP", "SIMS2_CAPTURE_LAST_BMP", "SIMS2_SAVE_SLOT", "SIMS2_PACE", "SIMS2_AUDIO",
-          "SIMS2_AUDIO_SILENT", "SIMS2_FRAME_CSV", "SIMS2_TRACE_UI", "SIMS2_TRACE_UI_US"})
+          "SIMS2_AUDIO_SILENT", "SIMS2_FRAME_CSV", "SIMS2_TRACE_UI", "SIMS2_TRACE_UI_US", "SIMS2_TIMING_TRACE", "SIMS2_EXPERIMENTAL_RENDER_HZ", "PSPRECOMP_HLE_REGISTRY"})
         unsetenv(name);
     // Generated guest functions may have large native frames.
     rlimit stack{};
