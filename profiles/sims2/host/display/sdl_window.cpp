@@ -121,18 +121,27 @@ struct NativeWindow::Impl : SettingsMenu {
     void save_menu() {
         if (!slot_open)
             return;
-        ImGui::SetNextWindowPos(ImGui::GetMainViewport()->GetCenter(), ImGuiCond_Appearing, {.5f, .5f});
-        ImGui::SetNextWindowSize({std::min(580.f, float(width) - 24), 0}, ImGuiCond_Appearing);
+        const auto &style=ImGui::GetStyle();
+        const char *warning=slot_mode==6?"Selecting a slot deletes its saved game.":
+            slot_mode==3 || slot_mode==5?"Selecting an existing slot replaces its saved game.":nullptr;
+        const float margin=12*scale;
+        const float dialog_width=std::max(1.f,std::min(580*scale,float(width)-2*margin));
+        const float wrap_width=std::max(1.f,dialog_width-2*style.WindowPadding.x);
+        const float warning_height=warning?ImGui::CalcTextSize(warning,nullptr,false,wrap_width).y+style.ItemSpacing.y:0;
+        const float content_height=ImGui::GetTextLineHeightWithSpacing()+warning_height+
+            float(slots.size()+1)*ImGui::GetFrameHeightWithSpacing();
+        const float dialog_height=std::min(ImGui::GetFrameHeight()+2*style.WindowPadding.y+content_height,
+                                          std::max(1.f,float(height)-2*margin));
+        ImGui::SetNextWindowPos(ImGui::GetMainViewport()->GetCenter(), ImGuiCond_Always, {.5f, .5f});
+        ImGui::SetNextWindowSize({dialog_width,dialog_height},ImGuiCond_Always);
         if (ImGui::Begin("Save data", nullptr,
-                         ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoCollapse)) {
+                         ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove |
+                         ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoCollapse)) {
             if(ImGui::IsWindowAppearing())ImGui::SetNavCursorVisible(true);
             ImGui::TextUnformatted(slot_mode == 2 || slot_mode == 4 ? "Choose a save to load"
                                    : slot_mode == 6                 ? "Choose a save to delete"
                                                                     : "Choose a save slot");
-            if (slot_mode == 6)
-                ImGui::TextWrapped("Selecting a slot deletes its saved game.");
-            else if (slot_mode == 3 || slot_mode == 5)
-                ImGui::TextWrapped("Selecting an existing slot replaces its saved game.");
+            if(warning)ImGui::TextWrapped("%s",warning);
             for (unsigned i=0;i<slots.size();++i) {
                 const auto &slot=slots[i];
                 ImGui::PushID(int(i));
@@ -172,6 +181,17 @@ struct NativeWindow::Impl : SettingsMenu {
         ImGui::SetCurrentContext(gui);
         ImGui_ImplSDL3_NewFrame();
         ImGui_ImplSDLGPU3_NewFrame();
+        // Font/style scale must be settled before NewFrame computes text metrics.
+        auto logical = ImGui::GetIO().DisplaySize;
+        const float desired = std::clamp(std::round(std::max(1.f, logical.y / 1080.f) * 4) / 4, 1.f, 3.f);
+        if (scale != desired) {
+            scale = desired;
+            ImGui::GetStyle() = base;
+            ImGui::GetStyle().ScaleAllSizes(scale);
+            ImGui::GetIO().FontGlobalScale = scale;
+        }
+        width = unsigned(logical.x);
+        height = unsigned(logical.y);
         ImGui::NewFrame();
         auto *commands = SDL_AcquireGPUCommandBuffer(device);
         check(commands, "Acquire Vulkan output commands");
@@ -239,16 +259,6 @@ struct NativeWindow::Impl : SettingsMenu {
         const auto now = std::chrono::steady_clock::now();
         observe(std::uint64_t(std::chrono::duration_cast<std::chrono::microseconds>(now.time_since_epoch()).count()),
                 game_frame && !opened);
-        auto logical = ImGui::GetIO().DisplaySize;
-        const float desired = std::clamp(std::round(std::max(1.f, logical.y / 1080.f) * 4) / 4, 1.f, 3.f);
-        if (scale != desired) {
-            scale = desired;
-            ImGui::GetStyle() = base;
-            ImGui::GetStyle().ScaleAllSizes(scale);
-            ImGui::GetIO().FontGlobalScale = scale;
-        }
-        width = unsigned(logical.x);
-        height = unsigned(logical.y);
         SettingsAction action = menu(current);
         save_menu();
         performance_panel(current, sw, sh);

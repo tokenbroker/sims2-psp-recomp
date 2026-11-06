@@ -28,6 +28,8 @@ saved preferences remain in effect until you choose Defaults and Save. F2 toggle
 
 The save/load picker displays **Default save** for the game's unnamed PSP slot.
 This is a display label; its original slot identifier and save folder are preserved.
+The SDL picker opens centered at its calculated size, without frame-by-frame
+auto-resizing. Its dimensions account for UI scale, warnings and slot count.
 
 ## FPS and game speed
 

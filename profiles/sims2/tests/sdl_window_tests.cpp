@@ -8,8 +8,16 @@
 #include <string_view>
 #include <iostream>
 #include <stdexcept>
+#include <imgui_internal.h>
+#include <cmath>
+#include <vector>
 namespace {
 SDL_WindowID window_id{};
+void record_save_geometry(ImGuiContext *,ImGuiContextHook *hook) {
+    auto *window=ImGui::FindWindowByName("Save data");
+    if(window && window->Active && !window->Hidden)
+        static_cast<std::vector<ImVec2>*>(hook->UserData)->push_back(window->Size);
+}
 void key(SDL_Scancode code, SDL_Keycode symbol) {
     SDL_Event e{};
     e.type = SDL_EVENT_KEY_DOWN;
@@ -96,8 +104,17 @@ int main() {
         SDL_Event released{};released.type=SDL_EVENT_KEY_UP;released.key.windowID=window_id;
         released.key.scancode=SDL_SCANCODE_RETURN;released.key.key=SDLK_RETURN;SDL_PushEvent(&released);
         window.present(memory,frame,55001,controller);
+        std::vector<ImVec2> sizes;
+        ImGuiContextHook hook{};hook.Type=ImGuiContextHookType_EndFramePost;
+        hook.Callback=record_save_geometry;hook.UserData=&sizes;
+        const auto hook_id=ImGui::AddContextHook(ImGui::GetCurrentContext(),&hook);
         SDL_AddTimer(250, close_dialog, nullptr);
         require(!window.select_savedata(2, {"TEST_SLOT"}), "Save selector cancellation failed");
+        ImGui::RemoveContextHook(ImGui::GetCurrentContext(),hook_id);
+        require(sizes.size()>=3,"Save geometry check did not observe enough frames");
+        for(const auto &size:sizes)
+            require(std::abs(size.x-sizes.front().x)<0.5f && std::abs(size.y-sizes.front().y)<0.5f,
+                    "Save dialog size changed after appearing");
         SDL_Event close{};
         close.type = SDL_EVENT_WINDOW_CLOSE_REQUESTED;
         close.window.windowID = window_id;

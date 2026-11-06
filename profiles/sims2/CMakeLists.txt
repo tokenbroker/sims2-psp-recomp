@@ -236,7 +236,7 @@ endif()
 
 if(PSPRECOMP_BUILD_PROFILE_TESTS AND SIMS2_GRAPHICS_BACKEND STREQUAL "VULKAN")
     add_executable(sims2_sdl_window_tests tests/sdl_window_tests.cpp)
-    target_link_libraries(sims2_sdl_window_tests PRIVATE sims2_shell)
+    target_link_libraries(sims2_sdl_window_tests PRIVATE sims2_shell sims2_imgui)
     add_test(NAME sims2_sdl_window COMMAND sims2_sdl_window_tests)
     set_tests_properties(sims2_sdl_window PROPERTIES TIMEOUT 20)
     set_tests_properties(sims2_sdl_window sims2_widescreen sims2_vulkan_renderer
