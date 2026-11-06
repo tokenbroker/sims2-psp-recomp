@@ -22,12 +22,12 @@ Hardware/compatibility limits: [HARDWARE-VALIDATION.md](docs/HARDWARE-VALIDATION
 
 ## Download
 
-[Latest release: v0.2.3](https://github.com/tokenbroker/sims2-psp-recomp/releases/latest)
+[Latest release: v0.2.4](https://github.com/tokenbroker/sims2-psp-recomp/releases/latest)
 
 | Platform | Download |
 | --- | --- |
-| Windows 10/11 x64 | [Windows setup ZIP](https://github.com/tokenbroker/sims2-psp-recomp/releases/download/v0.2.3/Sims2PSP-win64-setup-0.2.3.zip) |
-| Linux x64, Vulkan / Wayland / X11 | [Linux setup archive](https://github.com/tokenbroker/sims2-psp-recomp/releases/download/v0.2.3/Sims2PSP-linux-x64-setup-0.2.3.tar.gz) |
+| Windows 10/11 x64 | [Windows setup ZIP](https://github.com/tokenbroker/sims2-psp-recomp/releases/download/v0.2.4/Sims2PSP-win64-setup-0.2.4.zip) |
+| Linux x64, Vulkan / Wayland / X11 | [Linux setup archive](https://github.com/tokenbroker/sims2-psp-recomp/releases/download/v0.2.4/Sims2PSP-linux-x64-setup-0.2.4.tar.gz) |
 
 **These are source installers.** Supply your own supported USA ISO; first setup
 compiles the game locally. No prebuilt game runtime or disc data is included.

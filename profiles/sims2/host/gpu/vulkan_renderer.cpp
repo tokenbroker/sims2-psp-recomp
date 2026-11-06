@@ -337,7 +337,7 @@ struct NativeRenderer::Impl {
 };
 NativeRenderer::NativeRenderer(bool) : impl_(std::make_unique<Impl>()) {
     auto &r = *impl_;
-    SDL_SetAppMetadata("The Sims 2 PSP Recomp", "0.2.3", "io.github.sims2psprecomp");
+    SDL_SetAppMetadata("The Sims 2 PSP Recomp", "0.2.4", "io.github.sims2psprecomp");
     require(SDL_InitSubSystem(SDL_INIT_VIDEO), "Initialize SDL Vulkan video");
     r.video = true;
     r.device =

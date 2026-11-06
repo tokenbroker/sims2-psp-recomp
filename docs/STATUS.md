@@ -99,7 +99,7 @@ Vulkan renderer/window tests now carry the `gpu` label. Hosted Windows excludes
 that label; Linux continues to run those tests with software Vulkan.
 
 
-## Main: distro preflight and Arch validation
+## v0.2.4 distro preflight and validation
 
 Setup checks actual H.264 and ATRAC3+ decoder availability as well as development
 packages. ATRAC availability can be queried per codec; the bundled Windows FFmpeg
@@ -110,5 +110,7 @@ set, with baseline ATRAC3 optional. The shader compiler may be named either
 The official Arch rolling container passed 43 host checks and the Wayland shell
 check using llvmpipe in [this run](https://github.com/tokenbroker/sims2-psp-recomp/actions/runs/42191837434/job/127805488422).
 Fedora 44's stock codec build failed the H.264 preflight; its documented CI recipe
-now adds RPM Fusion Free's codec supplement. That recipe awaits its first passing
-build. These checks do not include a game image or physical GPU/Deck gameplay.
+adds RPM Fusion Free's codec supplement. With it, all 43 host checks and the Wayland
+shell passed in the [Fedora run](https://github.com/tokenbroker/sims2-psp-recomp/actions/runs/42192373696/job/127807257072).
+The updated local Windows suite passes 45 checks. These checks do not include a
+game image or physical GPU/Deck gameplay.

@@ -14,7 +14,7 @@ is not a gate for every host change.
 | AMD RADV / NVIDIA / Intel Linux | Run the focused scenario on each available real GPU. |
 | Steam Deck / Gamescope | Not physically verified. Check controller-only launch, L3+R3/F1, Steam Input, 1280x800, reconnect and suspend/resume. |
 | Arch rolling | Official container: 43 host checks plus Weston/Wayland shell passed; software Vulkan, not physical GPU gameplay. |
-| Fedora 44 | Clean build job exposed a missing H.264 decoder in stock FFmpeg. Full-codec package recipe added; rerun pending. Physical runtime checks remain. |
+| Fedora 44 | Official container plus documented RPM Fusion Free codec supplement: 43 host checks and Weston/Wayland shell passed with llvmpipe. Physical runtime checks remain. |
 | HDR | D3D11 conversion/fallback tested; physical output needs a capable screen. Vulkan output remains SDR. |
 
 Focused session: boot from a fresh temporary save, navigate and cancel menus,
