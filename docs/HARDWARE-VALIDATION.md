@@ -13,7 +13,7 @@ is not a gate for every host change.
 | X11 | Xvfb: same shell checks. |
 | AMD RADV / NVIDIA / Intel Linux | Run the focused scenario on each available real GPU. |
 | Steam Deck / Gamescope | Not physically verified. Check controller-only launch, L3+R3/F1, Steam Input, 1280x800, reconnect and suspend/resume. |
-| Fedora / Arch | Build instructions provided; fresh distro/container and physical runtime checks still needed. |
+| Fedora 44 / Arch rolling | Official-container CI jobs added for clean native builds and X11/Wayland software rendering; first results pending. Physical runtime checks remain. |
 | HDR | D3D11 conversion/fallback tested; physical output needs a capable screen. Vulkan output remains SDR. |
 
 Focused session: boot from a fresh temporary save, navigate and cancel menus,

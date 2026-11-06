@@ -47,7 +47,10 @@ AtracDecoder::AtracDecoder() : impl_(std::make_unique<Impl>()) {}
 AtracDecoder::~AtracDecoder() = default;
 
 bool AtracDecoder::available() noexcept {
-    return true;
+    return available(AtracCodec::Atrac3) || available(AtracCodec::Atrac3Plus);
+}
+bool AtracDecoder::available(AtracCodec codec) noexcept {
+    return avcodec_find_decoder(codec == AtracCodec::Atrac3 ? AV_CODEC_ID_ATRAC3 : AV_CODEC_ID_ATRAC3P) != nullptr;
 }
 
 bool AtracDecoder::open(
@@ -149,6 +152,7 @@ AtracDecoder::~AtracDecoder() = default;
 bool AtracDecoder::available() noexcept {
     return false;
 }
+bool AtracDecoder::available(AtracCodec) noexcept { return false; }
 bool AtracDecoder::open(AtracCodec, unsigned, unsigned, std::span<const std::uint8_t>) {
     return false;
 }

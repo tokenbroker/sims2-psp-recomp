@@ -32,8 +32,9 @@ public:
     AtracDecoder(const AtracDecoder &) = delete;
     AtracDecoder &operator=(const AtracDecoder &) = delete;
 
-    // True when the build links a decoder.
+    // True when at least one ATRAC decoder is present.
     [[nodiscard]] static bool available() noexcept;
+    [[nodiscard]] static bool available(AtracCodec codec) noexcept;
 
     // For ATRAC3, `extradata` is the 14 codec-specific bytes that follow
     // cbSize in the WAVE `fmt ` chunk (coding mode and frame factor);

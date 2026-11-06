@@ -17,21 +17,32 @@ sudo apt install build-essential cmake ninja-build pkg-config python3 \
   libasound2-dev libpulse-dev libdrm-dev libgbm-dev libegl1-mesa-dev libudev-dev
 ```
 
-Fedora-family systems need a C++20 compiler, CMake, Ninja, Python, pkgconf,
-`glslang`, `vulkan-loader-devel`, Vulkan GPU drivers, `SDL3-devel`,
-`freetype-devel`, `fontconfig-devel`, and FFmpeg development packages providing
-`libavcodec.pc` and `libavutil.pc`. Package availability/codecs depend on the
-repositories enabled on that installation. Check with:
+Fedora 44 build/test dependencies (CI starts from the official Fedora container):
 
 ```sh
-pkg-config --modversion libavcodec libavutil freetype2 fontconfig
+sudo dnf install gcc-c++ cmake ninja-build python3 pkgconf-pkg-config glslang \
+  vulkan-loader-devel mesa-vulkan-drivers SDL3-devel libavcodec-free-devel \
+  libavutil-free-devel freetype-devel fontconfig-devel liberation-sans-fonts
 ```
 
-Arch-family systems use `base-devel cmake ninja python pkgconf glslang
-vulkan-icd-loader sdl3 ffmpeg freetype2 fontconfig ttf-liberation` plus their GPU's
-Vulkan driver, for example `vulkan-radeon` on AMD or `vulkan-intel` on Intel.
-These package names describe the expected development environment; Fedora and
-Arch builds still require validation on those distributions.
+Arch-family systems:
+
+```sh
+sudo pacman -Syu --needed base-devel cmake ninja python pkgconf glslang \
+  vulkan-icd-loader sdl3 ffmpeg freetype2 fontconfig ttf-liberation \
+  libdecor libxkbcommon wayland
+```
+
+Install your GPU's Vulkan driver too, such as `vulkan-radeon` for AMD or
+`vulkan-intel` for Intel on Arch. Software rendering in CI uses `vulkan-swrast`.
+Fedora and Arch container jobs are being validated; container results do not
+prove physical GPU or Steam Deck compatibility.
+
+Run `python3 profiles/sims2/tools/doctor.py` before building. It checks tools,
+FFmpeg development libraries and the actual H.264 and ATRAC3+ decoders; baseline ATRAC3 availability is also reported.
+A distro's codec-restricted FFmpeg build may lack a required decoder despite providing
+`libavcodec.pc`; setup reports this instead of silently losing movies or audio.
+Both `glslangValidator` and `glslang` shader compiler names are accepted.
 
 If SDL3 3.4+ is unavailable, CMake builds the hash-pinned official SDL 3.4.20
 source archive. Install the Wayland/X11/audio development packages above first

@@ -8,6 +8,7 @@ import shutil
 import subprocess
 from prepare import prepare
 from check_local_build import check_local_build
+from doctor import check as check_prerequisites
 
 ROOT=Path(__file__).resolve().parents[3]
 PROFILE=ROOT/"profiles/sims2"
@@ -26,8 +27,10 @@ def main():
     if workspace==ROOT or ROOT.is_relative_to(workspace) or (workspace.is_relative_to(ROOT) and not workspace.is_relative_to(ROOT/"out")):
         parser.error("Choose a workspace under out/ or outside the checkout")
     if workspace==ROOT/"out":parser.error("Choose a separate build workspace")
-    for name in ("cmake","ninja","pkg-config","glslangValidator"):
-        if not shutil.which(name):parser.error(f"Missing {name}; see docs/LINUX.md")
+    prerequisites=check_prerequisites()
+    if not prerequisites["ok"]:
+        missing=[c["name"] for c in prerequisites["checks"] if not c["ok"] and c.get("required",True)]
+        parser.error("Missing prerequisites: "+", ".join(missing)+"; see docs/LINUX.md")
     run("pkg-config","--exists","libavcodec","libavutil","freetype2","fontconfig")
     workspace.mkdir(parents=True,exist_ok=True)
     with (workspace/"setup.lock").open("a+b") as lock:
