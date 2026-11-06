@@ -238,6 +238,9 @@ if(PSPRECOMP_BUILD_PROFILE_TESTS AND SIMS2_GRAPHICS_BACKEND STREQUAL "VULKAN")
     target_link_libraries(sims2_sdl_window_tests PRIVATE sims2_shell)
     add_test(NAME sims2_sdl_window COMMAND sims2_sdl_window_tests)
     set_tests_properties(sims2_sdl_window PROPERTIES TIMEOUT 20)
+    set_tests_properties(sims2_sdl_window sims2_widescreen sims2_vulkan_renderer
+        sims2_vulkan_renderer_2x sims2_vulkan_renderer_4x sims2_vulkan_renderer_8x
+        PROPERTIES LABELS "gpu")
 endif()
 
 if(WIN32 AND PSPRECOMP_BUILD_PROFILE_TESTS AND SIMS2_GRAPHICS_BACKEND STREQUAL "VULKAN")
@@ -247,6 +250,9 @@ if(WIN32 AND PSPRECOMP_BUILD_PROFILE_TESTS AND SIMS2_GRAPHICS_BACKEND STREQUAL "
 endif()
 
 if(PSPRECOMP_BUILD_PROFILE_TESTS)
+    add_executable(sims2_frame_history_tests tests/frame_history_tests.cpp)
+    target_include_directories(sims2_frame_history_tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/host")
+    add_test(NAME sims2_frame_history COMMAND sims2_frame_history_tests)
     add_executable(sims2_host_input_tests tests/host_input_tests.cpp)
     target_link_libraries(sims2_host_input_tests PRIVATE sims2_host_settings sims2_kernel)
     add_test(NAME sims2_host_input COMMAND sims2_host_input_tests)

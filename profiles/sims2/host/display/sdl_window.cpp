@@ -38,7 +38,7 @@ struct NativeWindow::Impl : SettingsMenu {
     bool vsync = true;
     std::uint64_t frames{}, presentations{}, first_us{};
     PresentationLimiter limiter;
-    std::chrono::steady_clock::time_point start{}, previous{};
+    std::chrono::steady_clock::time_point start{};
     std::vector<std::uint32_t> pixels = std::vector<std::uint32_t>(480 * 272);
     SDL_GPUTextureSamplerBinding binding{};
     std::optional<std::string> slot_choice;
@@ -174,6 +174,7 @@ struct NativeWindow::Impl : SettingsMenu {
             check(false, "Acquire Vulkan swapchain");
         }
         if (!swap) {
+            reset_anchor();
             SDL_CancelGPUCommandBuffer(commands);
             ImGui::EndFrame();
             SDL_Delay(16);
@@ -227,17 +228,9 @@ struct NativeWindow::Impl : SettingsMenu {
         hdr_supported = false;
         output_status = "SDR output. HDR is not enabled in this Vulkan backend.";
         hdr_active = false;
-        if (game_frame && !opened) {
-            auto now = std::chrono::steady_clock::now();
-            if (previous.time_since_epoch().count()) {
-                times[sample++ % times.size()] =
-                    std::chrono::duration<float, std::milli>(now - previous).count();
-                count = std::min(unsigned(times.size()), count + 1);
-            }
-            previous = now;
-        }
-        if (opened)
-            previous = {};
+        const auto now = std::chrono::steady_clock::now();
+        observe(std::uint64_t(std::chrono::duration_cast<std::chrono::microseconds>(now.time_since_epoch()).count()),
+                game_frame && !opened);
         auto logical = ImGui::GetIO().DisplaySize;
         const float desired = std::clamp(std::round(std::max(1.f, logical.y / 1080.f) * 4) / 4, 1.f, 3.f);
         if (scale != desired) {

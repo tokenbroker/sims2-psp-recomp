@@ -78,3 +78,10 @@ Windows, XDG config on Linux. It creates defaults only for a missing file,
 preserves existing bindings and does not reset preferences on each launch.
 Choosing a fixed internal multiplier clears fractional scaling. Presentation
 limits do not change the native engine frame rate.
+
+
+F2 and F1 Performance report host presentation-call cadence, not a count of unique
+PSP game frames or monitor scanout. Long frame intervals remain in the graph and
+average, including stalls over 250 ms. Time deliberately spent in the settings
+menu, or without an available output surface, is excluded. Both backends use
+the same bounded timing history.

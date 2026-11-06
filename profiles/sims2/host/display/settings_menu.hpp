@@ -1,5 +1,6 @@
 #pragma once
 #include "display/settings_overlay.hpp"
+#include "display/frame_history.hpp"
 #include <algorithm>
 #include <array>
 #include <cmath>
@@ -39,15 +40,13 @@ inline void note(const char *text) {
     ImGui::PopTextWrapPos();
 }
 } // namespace settings_ui
-struct SettingsMenu {
+struct SettingsMenu : FrameHistory {
     unsigned width{}, height{};
     float scale{1};
     HostSettings draft;
     int capture_action = -1;
     bool opened{}, focus{}, hdr_active{}, hdr_supported{true};
     std::string status, output_status, backend = "Direct3D 11";
-    std::array<float, 120> times{};
-    unsigned sample{}, count{};
     void performance_panel(const HostSettings &current, unsigned output_width, unsigned output_height) const {
         if (!current.show_performance)
             return;
@@ -56,14 +55,9 @@ struct SettingsMenu {
         if (ImGui::Begin("Performance (F2)", nullptr,
                          ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoInputs |
                              ImGuiWindowFlags_NoSavedSettings)) {
-            float sum{}, lo = count ? times[0] : 0, hi{};
-            for (unsigned i = 0; i < count; ++i) {
-                sum += times[i];
-                lo = std::min(lo, times[i]);
-                hi = std::max(hi, times[i]);
-            }
-            float average = count ? sum / count : 0;
-            ImGui::Text("%s | %.1f FPS | %.2f ms", opened ? "Paused" : "Running",
+            const auto timing = summary();
+            const auto average = timing.average, lo = timing.minimum, hi = timing.maximum;
+            ImGui::Text("%s | Present %.1f FPS | %.2f ms", opened ? "Paused" : "Running",
                         average > 0 ? 1000 / average : 0, average);
             ImGui::Text("%s | output %u x %u", backend.c_str(), output_width, output_height);
             auto factor = effective_render_scale(current, output_height);
@@ -267,13 +261,8 @@ struct SettingsMenu {
                     ImGui::EndTabItem();
                 }
                 if (ImGui::BeginTabItem("Performance")) {
-                    float sum{}, lo = count ? times[0] : 0, hi{};
-                    for (unsigned i = 0; i < count; ++i) {
-                        sum += times[i];
-                        lo = std::min(lo, times[i]);
-                        hi = std::max(hi, times[i]);
-                    }
-                    const auto average = count ? sum / count : 0;
+                    const auto timing = summary();
+                    const auto average = timing.average, lo = timing.minimum, hi = timing.maximum;
                     ImGui::Text("Presented: %.1f FPS | average %.2f ms", average > 0 ? 1000 / average : 0,
                                 average);
                     ImGui::Text("Frame times: %.2f - %.2f ms", lo, hi);
@@ -288,7 +277,7 @@ struct SettingsMenu {
                                      count == times.size() ? int(sample % times.size()) : 0, nullptr, 0,
                                      std::max(40.0f, hi * 1.2f), {0, 100 * scale});
                     note("The game pauses while this menu is open. These are the most recent presented-frame "
-                         "measurements.");
+                         "measurements, including stalls. This is presentation cadence, not engine FPS.");
                     ImGui::EndTabItem();
                 }
                 if (ImGui::BeginTabItem("Audio")) {

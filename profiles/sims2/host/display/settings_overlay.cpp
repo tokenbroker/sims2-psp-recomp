@@ -81,7 +81,6 @@ struct SettingsOverlay::Impl : SettingsMenu {
         out.close();if(!out)throw psprecomp::Error("Cannot write output capture");capture_path.clear();
     }
     std::uint64_t presentations{};
-    std::chrono::steady_clock::time_point previous{};
     ImGuiStyle base;
     void resize(unsigned w,unsigned h,const HostSettings &settings){
         target.Reset();surface->configure(w,h,settings);target=surface->target();width=w;height=h;
@@ -150,13 +149,13 @@ void SettingsOverlay::status(std::string message) { impl_->status=std::move(mess
 void SettingsOverlay::performance(bool enabled) { impl_->draft.show_performance=enabled; }
 SettingsAction SettingsOverlay::present(std::span<const std::uint32_t> pixels,const HostSettings &settings,bool game_frame,ID3D11ShaderResourceView *rendered) {
     auto &p=*impl_;RECT rect{};GetClientRect(p.window,&rect);
-    if (rect.right<=0 || rect.bottom<=0 || IsIconic(p.window)) return {};
+    if (rect.right<=0 || rect.bottom<=0 || IsIconic(p.window)) { p.reset_anchor(); return {}; }
     p.resize(unsigned(rect.right),unsigned(rect.bottom),settings);ImGui::SetCurrentContext(p.gui);p.style();
     if(!rendered)p.context->UpdateSubresource(p.upload.Get(),0,nullptr,pixels.data(),480*4,0);
     ImGui_ImplDX11_NewFrame();ImGui_ImplWin32_NewFrame();ImGui::NewFrame();
     const auto now=std::chrono::steady_clock::now();
-    if(game_frame && !p.opened){if(p.previous.time_since_epoch().count()){const auto ms=std::chrono::duration<float,std::milli>(now-p.previous).count();if(ms<250){p.times[p.sample++%p.times.size()]=ms;p.count=std::min(unsigned(p.times.size()),p.count+1);}}p.previous=now;}
-    if(p.opened)p.previous={};
+    p.observe(std::uint64_t(std::chrono::duration_cast<std::chrono::microseconds>(now.time_since_epoch()).count()),
+              game_frame && !p.opened);
     const auto action=p.menu(settings);
     p.performance_panel(settings,p.width,p.height);
     p.input_panel(settings);

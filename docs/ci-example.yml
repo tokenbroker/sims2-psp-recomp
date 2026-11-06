@@ -24,7 +24,7 @@ jobs:
       # Hosted Windows runners do not guarantee a Vulkan-capable driver.
       # Compile the complete backend; run its GPU-independent regressions here.
       - if: matrix.backend == 'VULKAN'
-        run: ctest --test-dir out/ci -C Release --output-on-failure -E "sims2_vulkan_renderer|sims2_sdl_window"
+        run: ctest --test-dir out/ci -C Release --output-on-failure -LE gpu
   linux:
     timeout-minutes: 30
     runs-on: ubuntu-24.04

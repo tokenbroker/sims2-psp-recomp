@@ -82,3 +82,17 @@ Linux shell checks pass on both X11 and isolated Weston Wayland. Windows CI
 now compiles both backends, with Vulkan runtime GPU checks excluded on hosted
 Windows runners that do not guarantee a Vulkan driver. This is not evidence of
 physical Steam Deck, Gamescope or broad vendor-driver compatibility.
+
+
+### Presentation statistics correction (main)
+
+F1/F2 now share one history that retains intervals over 250 ms; the Windows
+Direct3D path previously discarded these stalls. Paused settings time and
+unavailable output surfaces reset the measurement anchor. The graph reports
+host presentation cadence, not engine FPS or monitor scanout. Deterministic
+checks cover long stalls, pauses, clock discontinuities and ring rollover.
+
+The first Windows Vulkan CI run compiled successfully but exposed a missing GPU
+test classification: widescreen checks also instantiate the renderer. All six
+Vulkan renderer/window tests now carry the `gpu` label. Hosted Windows excludes
+that label; Linux continues to run those tests with software Vulkan.
