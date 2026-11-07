@@ -31,4 +31,5 @@ alongside its render target when internal resolution changes.
 
 Native framebuffer screenshots alone could not reveal this output-only problem.
 Future presentation checks must inspect the GPU display image as well as PSP
-memory. User saves, game-derived binaries and scene captures remain private.
+memory. User saves and game-derived binaries remain private. Selected, reviewed game
+screenshots are published in the [playtest gallery](PLAYTEST_SCREENSHOTS.md).

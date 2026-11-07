@@ -1,5 +1,11 @@
 # The Sims 2 PSP Recomp
 
+[![Host checks](https://github.com/tokenbroker/sims2-psp-recomp/actions/workflows/build.yml/badge.svg)](https://github.com/tokenbroker/sims2-psp-recomp/actions/workflows/build.yml)
+[![Latest release](https://img.shields.io/github/v/release/tokenbroker/sims2-psp-recomp)](https://github.com/tokenbroker/sims2-psp-recomp/releases/latest)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
+**Return to Strangetown with modern display options, controller support and an in-game settings menu.**
+
 An unofficial native PC port of **The Sims 2 for PSP (USA, ULUS-10031)**,
 built by statically recompiling the game's Allegrex executable with
 [PSPRecomp](https://github.com/jessicanataliagta/PSPRecomp).
@@ -19,6 +25,38 @@ saves or playable game executable.** Supply your own legally acquired USA ISO.
 Input rebinding and mouse controls: [INPUT.md](docs/INPUT.md).
 Benchmark methodology: [BENCHMARKS.md](docs/BENCHMARKS.md).
 Hardware/compatibility limits: [HARDWARE-VALIDATION.md](docs/HARDWARE-VALIDATION.md).
+
+**[Download](#download) | [Build guide](docs/BUILD.md) | [Settings](docs/SETTINGS.md) | [Linux / Steam Deck](docs/LINUX.md) | [Report a bug](https://github.com/tokenbroker/sims2-psp-recomp/issues)**
+
+## Gameplay
+
+| Paradise Place | Service station |
+| --- | --- |
+| ![A Sim outside a house in Paradise Place](docs/images/gameplay-paradise-place.png) | ![A Sim entering the service-station garage](docs/images/gameplay-service-station.png) |
+
+Actual local gameplay captures at the PSP framebuffer resolution (480 x 272).
+These show the game image; output resolution and internal rendering scale are
+configurable separately. See the [Vulkan playtest screenshots and fix notes](docs/PLAYTEST_SCREENSHOTS.md)
+for the user-reported presentation issue.
+
+## At a glance
+
+| Feature | Available controls |
+| --- | --- |
+| Display | 1080p defaults, fullscreen modes, ultrawide aspects and custom resolutions |
+| Graphics | 1x-8x internal scale, output-relative scaling and filtering |
+| Performance | Presentation FPS cap, VSync and F2 frame-time overlay |
+| Input | Keyboard, SDL controllers, rebinding and optional right-stick camera |
+| In-game settings | F1 on keyboard, L3+R3 on a controller |
+| Saves | Local encrypted save/load and launcher backup folder integration |
+| Windows renderers | Direct3D 11; optional Vulkan in dual-backend builds |
+| Linux | Native Vulkan with Wayland/X11; physical Steam Deck validation pending |
+
+**Latest source versus release:** the published **v0.2.4** installers predate the
+experimental 120/240 Hz engine modes, Windows renderer switching, recent Vulkan
+performance/presentation fixes and save-picker improvements. Build the latest
+source to use those changes. Native engine timing remains the default; Vulkan
+and high engine rates still need broader hardware and gameplay reports.
 
 ## Download
 
@@ -131,8 +169,8 @@ is verified locally; interchange with original PSP hardware is not established.
 
 Opening movies, Create-A-Sim, the service-station introduction, arrival at
 Paradise Place, initial estate interactions, Buy/Design operations and encrypted
-save/load have been exercised. Current development checks include 39 automated
-tests plus focused startup/rendering/input checks. A full playthrough is not a
+save/load have been exercised. Development checks cover host timing, rendering, audio, input, save dialogs and
+packaging, alongside focused gameplay smoke tests. A full playthrough is not a
 release requirement; users can report later scene or hardware issues as they
 encounter them.
 

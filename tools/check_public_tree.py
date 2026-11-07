@@ -12,6 +12,14 @@ patterns = {
     "AWS credential": r"AKIA[A-Z0-9]{16}",
     "personal Windows path": r"[A-Za-z]:[\\/]Users[\\/](?!Public(?:[\\/]|$)|Default(?:[\\/]|$))[^\\/\s\"<>]+",
 }
+# Screenshots reviewed for publication; game scenes only, with metadata removed.
+reviewed_images = {
+    'docs/images/windows-menu-baseline.png',
+    'docs/images/gameplay-paradise-place.png',
+    'docs/images/gameplay-service-station.png',
+    'docs/images/vulkan-garage-before-fix.png',
+    'docs/images/vulkan-exterior-before-fix.png',
+}
 errors = []
 for name in filter(None, paths):
     path = root / name
@@ -22,7 +30,7 @@ for name in filter(None, paths):
     if path.stat().st_size > 5 * 1024 * 1024:
         errors.append(f"{name}: unexpected large file")
     if path.suffix.lower() in {".png", ".jpg", ".jpeg", ".webp"}:
-        if name!="docs/images/windows-menu-baseline.png":errors.append(f"{name}: unreviewed image payload")
+        if name not in reviewed_images: errors.append(f"{name}: unreviewed image payload")
         continue
     data = path.read_text(encoding="utf-8", errors="replace")
     for number, line in enumerate(data.splitlines(), 1):
