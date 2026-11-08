@@ -115,3 +115,20 @@ adds RPM Fusion Free's codec supplement. With it, all 43 host checks and the Way
 shell passed in the [Fedora run](https://github.com/tokenbroker/sims2-psp-recomp/actions/runs/42192373696/job/127807257072).
 The updated local Windows suite passes 45 checks. These checks do not include a
 game image or physical GPU/Deck gameplay.
+
+## v0.2.5 installer and runtime update
+
+- Windows dual-backend setup builds one local game-code archive and reuses it
+  for D3D11 and Vulkan. Retry generation preserves unchanged source timestamps.
+- The standalone launcher resolves the prepared `work/install` runtime and its
+  selected renderer. Frozen setup embeds host shaders using bundled Python.
+- The frozen installer reports v0.2.5 and successfully validates/extracts a local
+  supported disc and generates all 575 game-code units. Generated output stays
+  private; this check does not claim a timed fresh full compilation.
+- Both renderers linked against a shared archive of existing local game objects
+  and passed isolated 900-frame startup checks. Windows setup regression tests,
+  frozen shader embedding, launcher path checks and package hash checks passed.
+- This release also includes the previous high-FPS, Windows renderer selection,
+  Vulkan staging/presentation and save-dialog fixes. Native timing and D3D11
+  remain the Windows defaults. No complete high-FPS playthrough or physical
+  Steam Deck validation is claimed.

@@ -19,7 +19,7 @@ opacity, color preservation, render scales and destination-alpha blending.
 See [the diagnosis and regression coverage](VULKAN_PRESENTATION.md) and
 [the separate Vulkan performance improvements](VULKAN_PERFORMANCE.md).
 
-Both fixes are in the current source; published v0.2.4 installers predate them.
+Both fixes ship in v0.2.5; v0.2.4 installers predate them.
 The screenshots contain game imagery and the performance overlay only; image
 metadata was removed before publication. No save files or game binaries are included.
 

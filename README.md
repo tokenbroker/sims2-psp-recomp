@@ -52,20 +52,20 @@ for the user-reported presentation issue.
 | Windows renderers | Direct3D 11; optional Vulkan in dual-backend builds |
 | Linux | Native Vulkan with Wayland/X11; physical Steam Deck validation pending |
 
-**Latest source versus release:** the published **v0.2.4** installers predate the
-experimental 120/240 Hz engine modes, Windows renderer switching, recent Vulkan
-performance/presentation fixes and save-picker improvements. Build the latest
-source to use those changes. Native engine timing remains the default; Vulkan
+**v0.2.5 includes** Windows renderer switching, Vulkan performance and
+presentation fixes, save-picker improvements and experimental 120/240 Hz engine
+modes. Dual-renderer setup compiles shared game code once; Windows retries keep
+unchanged generated files. Native engine timing remains the default. Vulkan
 and high engine rates still need broader hardware and gameplay reports.
 
 ## Download
 
-[Latest release: v0.2.4](https://github.com/tokenbroker/sims2-psp-recomp/releases/latest)
+[Latest release: v0.2.5](https://github.com/tokenbroker/sims2-psp-recomp/releases/latest)
 
 | Platform | Download |
 | --- | --- |
-| Windows 10/11 x64 | [Windows setup ZIP](https://github.com/tokenbroker/sims2-psp-recomp/releases/download/v0.2.4/Sims2PSP-win64-setup-0.2.4.zip) |
-| Linux x64, Vulkan / Wayland / X11 | [Linux setup archive](https://github.com/tokenbroker/sims2-psp-recomp/releases/download/v0.2.4/Sims2PSP-linux-x64-setup-0.2.4.tar.gz) |
+| Windows 10/11 x64 | [Windows setup ZIP](https://github.com/tokenbroker/sims2-psp-recomp/releases/download/v0.2.5/Sims2PSP-win64-setup-0.2.5.zip) |
+| Linux x64, Vulkan / Wayland / X11 | [Linux setup archive](https://github.com/tokenbroker/sims2-psp-recomp/releases/download/v0.2.5/Sims2PSP-linux-x64-setup-0.2.5.tar.gz) |
 
 **These are source installers.** Supply your own supported USA ISO; first setup
 compiles the game locally. No prebuilt game runtime or disc data is included.
@@ -124,8 +124,7 @@ Choose **F1 > Display > Engine frame rate**, Save, then restart. Use a matching 
 unlimited presentation cap; VSync may limit output to the monitor's refresh rate.
 Native remains the default. These modes have bounded timing/movement checks,
 not a complete high-FPS playthrough. Unlimited applies to presentation only.
-See [high-FPS investigation](docs/HIGH_FPS_RESEARCH.md). Published v0.2.4 assets
-predate this setting.
+See [high-FPS investigation](docs/HIGH_FPS_RESEARCH.md). This setting is included starting with v0.2.5.
 HDR maps the original SDR image into HDR output; Windows HDR must be enabled on
 the current display. Windows defaults to **Direct3D 11**. Dual-backend installs
 offer **F1 > Display > Graphics backend > Vulkan** (Save and restart).

@@ -9,7 +9,7 @@ Windows setup defaults to `--graphics BOTH`: D3D11 is the primary runtime at the
 install root; Vulkan and its DLLs are staged under `vulkan/`. Both startup paths
 are checked using isolated memory sticks before setup records success. Explicit
 single-backend builds remain available. Building both variants takes longer.
-The published v0.2.4 installer predates this selector.
+The selector is included starting with v0.2.5; v0.2.4 predates it.
 
 `SIMS2_GRAPHICS_BACKEND=d3d11`, `vulkan`, or `auto` overrides the saved choice for
 one launch. `auto` means the installation's primary renderer. This also provides

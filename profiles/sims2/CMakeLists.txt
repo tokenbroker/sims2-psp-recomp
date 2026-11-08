@@ -137,7 +137,13 @@ if(SIMS2_GRAPHICS_BACKEND STREQUAL "D3D11")
     add_dependencies(sims2 sims2_probe)
 endif()
 if(SIMS2_GRAPHICS_BACKEND STREQUAL "VULKAN")
-    find_package(Python3 REQUIRED COMPONENTS Interpreter)
+    set(SIMS2_SHADER_EMBEDDER "" CACHE FILEPATH "Bundled source-setup executable for host shader embedding")
+    if(SIMS2_SHADER_EMBEDDER)
+        set(_embed_command "${SIMS2_SHADER_EMBEDDER}" --embed-host-shaders)
+    else()
+        find_package(Python3 REQUIRED COMPONENTS Interpreter)
+        set(_embed_command "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tools/embed_spirv.py")
+    endif()
     find_program(SIMS2_GLSLANG NAMES glslangValidator glslang
         HINTS "$ENV{VULKAN_SDK}/Bin" "${CMAKE_SOURCE_DIR}/out/dependencies/glslang/bin" REQUIRED)
     set(_shader_dir "${CMAKE_CURRENT_BINARY_DIR}/shaders")
@@ -148,7 +154,7 @@ if(SIMS2_GRAPHICS_BACKEND STREQUAL "VULKAN")
             DEPENDS "host/gpu/shaders/ge.${stage}" VERBATIM)
     endforeach()
     add_custom_command(OUTPUT "${_shader_dir}/sims2_spirv.hpp"
-        COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tools/embed_spirv.py"
+        COMMAND ${_embed_command}
             "${_shader_dir}/sims2_spirv.hpp" "${_shader_dir}/ge.vert.spv" "${_shader_dir}/ge.frag.spv"
         DEPENDS tools/embed_spirv.py "${_shader_dir}/ge.vert.spv" "${_shader_dir}/ge.frag.spv" VERBATIM)
     add_library(sims2_renderer STATIC host/gpu/vulkan_renderer.cpp "${_shader_dir}/sims2_spirv.hpp")

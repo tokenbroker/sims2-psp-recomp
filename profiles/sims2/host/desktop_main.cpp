@@ -50,7 +50,12 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR, int) {
         else if(value=="auto")selected=GraphicsBackend::Default;
         else {LocalFree(argv);return fail(L"Unknown graphics backend; use auto, d3d11 or vulkan.");}
     }
-    const auto backend=sims2::display::selected_runtime(folder,selected,primary);
+#if defined(SIMS2_RUNTIME_SUBDIR)
+    const auto runtime_folder=folder/SIMS2_RUNTIME_SUBDIR;
+#else
+    const auto runtime_folder=folder;
+#endif
+    const auto backend=sims2::display::selected_runtime(runtime_folder,selected,primary);
     std::error_code backend_error;
     const auto prepared = std::filesystem::is_regular_file(backend, backend_error);
     if (argc == 2 && std::wstring(argv[1]) == L"--check") {

@@ -69,8 +69,8 @@ renderers without recompiling generated units; each passes the isolated
 fresh-install speedup. Regression tests check unchanged timestamps, changed
 content and obsolete-unit removal. The source-kit packaging check also passes.
 
-These changes are in the latest source and are not in the published v0.2.4
-installer. They reduce duplicate work; they do not eliminate the initial
+These changes ship in v0.2.5; the older v0.2.4 installer does not include them. They reduce duplicate work; they do not
+eliminate the initial
 local game compilation or the Windows C++ build-tool requirement.
 
 ## Run

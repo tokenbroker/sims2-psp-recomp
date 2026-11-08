@@ -1,7 +1,7 @@
 # High frame rate research
 
 Status: opt-in experimental 120/240 Hz engine modes in current source. Published
-v0.2.4 assets predate the feature. Native remains the default.
+v0.2.5 includes the feature; v0.2.4 assets predate it. Native remains the default.
 
 The F1 frame cap controls presentation pacing. Selecting 240 or unlimited does
 not by itself make the PSP game simulate and draw 240 distinct frames per second.

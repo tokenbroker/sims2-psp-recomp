@@ -138,8 +138,12 @@ def promote_generated(staging, generated):
 
 
 def main():
+    if len(sys.argv) == 5 and sys.argv[1] == "--embed-host-shaders":
+        from embed_spirv import embed
+        embed(*sys.argv[2:])
+        return
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--version", action="version", version="sims2-source-setup 0.2.4")
+    parser.add_argument("--version", action="version", version="sims2-source-setup 0.2.5")
     parser.add_argument("iso", type=Path)
     parser.add_argument("--workspace", type=Path, default=ROOT / "out/sims2-from-iso")
     parser.add_argument("--jobs", type=int, default=4, help="Parallel build projects (1..16)")
@@ -242,6 +246,8 @@ def main():
         for index, backend in enumerate(graphics):
             backend_build = build if index == 0 else workspace / "build-vulkan"
             options = [f"-DSIMS2_GLSLANG={shader_tool}"] if backend == "VULKAN" else []
+            if FROZEN and backend == "VULKAN":
+                options.append(f"-DSIMS2_SHADER_EMBEDDER={sys.executable}")
             # Reuse only the archive just built in this invocation, never one
             # downloaded or selected from an unrelated build/toolchain.
             archive = build / "profiles/sims2/Release/sims2_aot.lib"

@@ -68,7 +68,7 @@ def source_files():
     files.add("profiles/sims2/third_party/ffmpeg/COPYING.LGPLv2.1")
     files.update(path.relative_to(ROOT).as_posix() for path in (ROOT / "docs").glob("*.md"))
     files.update(path.relative_to(ROOT).as_posix() for path in (ROOT / "docs/data").glob("*.json"))
-    files.add("docs/images/windows-menu-baseline.png")
+    files.update(path.relative_to(ROOT).as_posix() for path in (ROOT / "docs/images").glob("*.png"))
     for name in files:
         path = ROOT / name
         if not path.is_file() or not path.resolve().is_relative_to(ROOT):
