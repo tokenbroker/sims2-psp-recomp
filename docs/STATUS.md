@@ -151,3 +151,23 @@ The frozen no-compile preparation path was exercised with build tools removed
 from PATH and rejects an invalid disc without writing game files. Both exact packaged runtimes passed isolated 900-frame startup checks, and
 the packaged desktop launcher passed D3D11/Vulkan/default selection checks. See
 [prebuilt packaging](PREBUILT_RELEASES.md).
+
+## v0.3.1 prepared-state upgrade fix
+
+An installed v0.2.x-to-v0.3.0 update retained the launcher's prepared state while
+the new manifest pointed at `game/` instead of `work/install/game/`. The runtime
+stopped before boot because the new extracted BOOT path did not exist. Fresh
+setup/startup checks had not covered this retained-state migration.
+
+The runtime now validates the ISO's disc identity and executable hash first and
+loads its executable directly from the verified disc when the prepared file is
+absent. Existing prepared files are still hash-checked. No build tools or changes
+to user saves/settings are needed. The public runtime package includes the fix
+for both Windows renderers.
+
+Regression validation for v0.3.1: both exact packaged runtimes reached 900 frames
+with no prepared BOOT file and no preparation step; neither created that file.
+Both rejected an invalid ISO and a mismatching existing prepared executable.
+The framework tests passed, including memory/file SHA-256 equivalence and the
+standard empty-input digest. This covers the retained-prepared-state failure
+missed by the earlier fresh-install check.

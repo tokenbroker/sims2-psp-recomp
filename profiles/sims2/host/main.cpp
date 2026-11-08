@@ -67,11 +67,6 @@ int main(int argc, char **argv) {
 #else
         setenv("PSPRECOMP_NO_CHAIN", "1", 1);
 #endif
-        if (psprecomp::sha256_file(argv[1]) !=
-            "03ace15b9457016d48ebe2aa18fc757912641024f1e3a1f0abb92f8280a386b1")
-            throw psprecomp::Error("Unsupported BOOT.BIN; expected ULUS-10031 USA");
-        auto runtime = std::make_unique<psprecomp::Runtime>();
-        const auto elf = psprecomp::Elf32Image::from_file(argv[1]);
         sims2::umd::DiscImage disc(argv[2]);
         const auto disc_id = disc.find("UMD_DATA.BIN");
         const auto disc_boot = disc.find("PSP_GAME/SYSDIR/BOOT.BIN");
@@ -79,8 +74,21 @@ int main(int argc, char **argv) {
         const auto id_bytes = disc.read_file(*disc_id, 256u);
         const std::string id(id_bytes.begin(), id_bytes.end());
         if (!id.starts_with("ULUS-10031|")) throw psprecomp::Error("Unsupported disc identity");
-        if (disc.read_file(*disc_boot, 4u * 1024u * 1024u) != elf.bytes())
-            throw psprecomp::Error("Disc BOOT.BIN differs from the supported executable");
+        auto boot_bytes = disc.read_file(*disc_boot, 4u * 1024u * 1024u);
+        if (psprecomp::sha256_bytes(boot_bytes) !=
+            "03ace15b9457016d48ebe2aa18fc757912641024f1e3a1f0abb92f8280a386b1")
+            throw psprecomp::Error("Unsupported disc BOOT.BIN; expected ULUS-10031 USA");
+        // Updates may retain the launcher's prepared flag while changing the
+        // install layout. The verified ISO is authoritative, so a missing old
+        // extraction must not prevent a prebuilt runtime from starting.
+        if (std::filesystem::exists(argv[1])) {
+            if (psprecomp::sha256_file(argv[1]) != psprecomp::sha256_bytes(boot_bytes))
+                throw psprecomp::Error("Prepared BOOT.BIN differs from the supported disc executable");
+        } else {
+            std::cerr << "[startup] Prepared BOOT.BIN is absent; loading verified executable directly from ISO\n";
+        }
+        const auto elf = psprecomp::Elf32Image::from_bytes(std::move(boot_bytes), "verified disc BOOT.BIN");
+        auto runtime = std::make_unique<psprecomp::Runtime>();
         const auto relocations = elf.load_and_relocate(runtime->memory());
         if (relocations.invalid || relocations.unsupported)
             throw psprecomp::Error("Relocation failure");

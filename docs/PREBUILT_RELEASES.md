@@ -44,3 +44,14 @@ or credential scans before publication. Never upload validation logs or saves.
 
 Linux remains a source installer in v0.3.0. A portable native Linux package needs
 its own runtime-dependency and distribution compatibility validation.
+
+## Upgrades from source installers
+
+v0.3.0 fresh preparation used `game/`, while the older source installer used
+`work/install/game/`. RecompLauncher can retain its prepared flag across updates
+and skip the new preparation step. v0.3.1 fixes the resulting missing-BOOT error:
+the runtime verifies the disc ID and executable SHA-256, then loads that
+executable directly from the ISO if the prepared copy is absent. An existing
+prepared copy must still match the supported disc. No compilation or save
+migration is required. The same fallback covers a prebuilt install whose local
+extracted files were removed; the ISO must remain available.

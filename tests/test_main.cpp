@@ -1818,6 +1818,11 @@ int main() {
         { std::ofstream out(temp, std::ios::binary); out << "abc"; }
         require(psprecomp::sha256_file(temp) == "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
                 "SHA-256 failed");
+        const std::array<std::uint8_t, 3> abc{'a', 'b', 'c'};
+        require(psprecomp::sha256_bytes(abc) == psprecomp::sha256_file(temp),
+                "Memory and file SHA-256 differ");
+        require(psprecomp::sha256_bytes({}) == "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                "Empty memory SHA-256 failed");
         std::filesystem::remove(temp);
 
         std::cout << "All PSPRecomp automatic-pipeline tests passed.\n";
