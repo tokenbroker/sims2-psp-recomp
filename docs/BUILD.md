@@ -44,6 +44,35 @@ also creates the local disc-validation setup executable. Python is bundled when
 building the optional source-installer package, but Windows C++ build tools and
 CMake are still required on the machine that compiles the game.
 
+## First-install time and retries
+
+The source installer compiles the game locally from your USA ISO. The
+"Compiling game code" step is expected during setup, and its duration depends
+on CPU, memory and disk speed. Normal Play launches the installed runtime;
+it does not run the compiler.
+
+The latest source builds the backend-independent game code into one local
+archive. Windows dual-backend setup reuses that archive for Vulkan after
+building D3D11, instead of compiling every generated unit twice. The archive
+is rebuilt by the first backend before reuse, with the same source, toolchain
+and Release configuration. It is private game-derived output.
+
+Retries regenerate into a temporary directory and preserve timestamps for
+identical generated sources, allowing the compiler to reuse completed objects.
+Changed sources still rebuild. Keep the same workspace; deleting it discards
+that work. Setup still verifies the supplied disc and validates startup.
+
+Validation: both Windows host builds link successfully with a shared archive.
+An archive assembled from the existing local game objects also links into both
+renderers without recompiling generated units; each passes the isolated
+900-frame startup check. This is a build/reuse correctness check, not a measured
+fresh-install speedup. Regression tests check unchanged timestamps, changed
+content and obsolete-unit removal. The source-kit packaging check also passes.
+
+These changes are in the latest source and are not in the published v0.2.4
+installer. They reduce duplicate work; they do not eliminate the initial
+local game compilation or the Windows C++ build-tool requirement.
+
 ## Run
 
 Import `out/sims2-from-iso/install` in RecompLauncher using **Bring Your Recomps**,

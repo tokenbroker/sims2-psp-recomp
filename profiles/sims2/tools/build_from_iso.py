@@ -123,6 +123,20 @@ def run(command, log, on_line=None):
         raise RuntimeError(f"Command exited with {code}; see {log.name}")
 
 
+def promote_generated(staging, generated):
+    """Keep unchanged source timestamps so interrupted setup can reuse objects."""
+    generated.mkdir(parents=True, exist_ok=True)
+    incoming = {path.name for path in staging.iterdir() if path.is_file()}
+    for path in staging.iterdir():
+        if path.is_file():
+            target = generated / path.name
+            if not target.is_file() or target.read_bytes() != path.read_bytes():
+                shutil.copy2(path, target)
+    for path in generated.glob("generated_*.cpp"):
+        if path.name not in incoming:
+            path.unlink()
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--version", action="version", version="sims2-source-setup 0.2.4")
@@ -207,8 +221,14 @@ def main():
              "--parallel", args.jobs, "--", "/nodeReuse:false"], log)
         report_progress(0.15, "Generating game code from your disc")
         prepare(iso, False, game, report_dir=workspace / "analysis")
-        run([framework / "Release/psp_recomp.exe", game / "PSP_GAME/SYSDIR/BOOT.BIN",
-             "--auto", generated, identity["load_base"], identity["unit_span_bytes"]], log)
+        import tempfile
+        with tempfile.TemporaryDirectory(prefix="generation-", dir=workspace) as temporary:
+            staging = Path(temporary)
+            run([framework / "Release/psp_recomp.exe", game / "PSP_GAME/SYSDIR/BOOT.BIN",
+                 "--auto", staging, identity["load_base"], identity["unit_span_bytes"]], log)
+            if not list(staging.glob("generated_unit_*.cpp")) or not (staging / "generated_registry.cpp").is_file():
+                raise RuntimeError("The recompiler did not produce a complete game corpus")
+            promote_generated(staging, generated)
         units = list(generated.glob("generated_unit_*.cpp"))
         if not units or not (generated / "generated_registry.cpp").is_file():
             raise RuntimeError("The recompiler did not produce a complete game corpus")
@@ -222,12 +242,17 @@ def main():
         for index, backend in enumerate(graphics):
             backend_build = build if index == 0 else workspace / "build-vulkan"
             options = [f"-DSIMS2_GLSLANG={shader_tool}"] if backend == "VULKAN" else []
+            # Reuse only the archive just built in this invocation, never one
+            # downloaded or selected from an unrelated build/toolchain.
+            archive = build / "profiles/sims2/Release/sims2_aot.lib"
+            options.append(f"-DSIMS2_AOT_LIBRARY={archive if index else ''}")
             run([cmake, "-S", ROOT, "-B", backend_build, "-G", "Visual Studio 17 2022", "-A", "x64",
                  "-DPSPRECOMP_PROFILE=sims2", "-DSIMS2_HOST_TESTS_ONLY=OFF", "-DSIMS2_TIMING_RESEARCH=OFF", "-DPSPRECOMP_BUILD_TESTS=OFF",
                  "-DPSPRECOMP_BUILD_PROFILE_TESTS=OFF", "-DPSPRECOMP_MSVC_MP_JOBS=1",
                  "-DSIMS2_OPTIMIZE_AOT=ON", f"-DSIMS2_GRAPHICS_BACKEND={backend}", f"-DSIMS2_GENERATED_DIR={generated}", *options], log)
             start=0.25+0.64*index/len(graphics)
-            report_progress(start, f"Compiling {backend}; completed work is reused")
+            report_progress(start, f"Building {backend} host; reusing compiled game code" if index else
+                            f"Compiling game code for {backend}; this is needed only during setup")
             run([cmake, "--build", backend_build, "--config", "Release", "--target", "sims2",
                  "--parallel", args.jobs, "--", "/nodeReuse:false"], log,
                 CompilationProgress(len(units), start=start, span=0.64/len(graphics)))

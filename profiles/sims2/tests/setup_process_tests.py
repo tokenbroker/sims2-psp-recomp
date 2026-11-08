@@ -12,12 +12,29 @@ import unittest
 TOOLS = Path(__file__).resolve().parents[1] / "tools"
 sys.path.insert(0, str(TOOLS))
 from setup_process import external_dll_search
-from build_from_iso import CompilationProgress
+from build_from_iso import CompilationProgress, promote_generated
 from runtime_package import stage_companion, RUNTIME_FILES
 
 
 @unittest.skipUnless(os.name == "nt", "Windows process/DLL behavior")
 class SetupProcessTests(unittest.TestCase):
+    def test_regeneration_preserves_unchanged_objects(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder); staging = root / "staging"; generated = root / "generated"
+            staging.mkdir(); generated.mkdir()
+            (generated / "generated_unit_0000.cpp").write_text("unchanged")
+            (generated / "generated_unit_0001.cpp").write_text("old")
+            (generated / "generated_unit_0002.cpp").write_text("obsolete")
+            os.utime(generated / "generated_unit_0000.cpp", ns=(1000000000, 1000000000))
+            (staging / "generated_unit_0000.cpp").write_text("unchanged")
+            (staging / "generated_unit_0001.cpp").write_text("new")
+            (staging / "generated_registry.cpp").write_text("registry")
+            promote_generated(staging, generated)
+            self.assertEqual((generated / "generated_unit_0000.cpp").stat().st_mtime_ns, 1000000000)
+            self.assertEqual((generated / "generated_unit_0001.cpp").read_text(), "new")
+            self.assertFalse((generated / "generated_unit_0002.cpp").exists())
+            self.assertTrue((generated / "generated_registry.cpp").exists())
+
     def test_companion_dependencies_are_isolated(self):
         with tempfile.TemporaryDirectory() as folder:
             root=Path(folder);source=root/"source";install=root/"install"
