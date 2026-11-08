@@ -132,3 +132,22 @@ game image or physical GPU/Deck gameplay.
   Vulkan staging/presentation and save-dialog fixes. Native timing and D3D11
   remain the Windows defaults. No complete high-FPS playthrough or physical
   Steam Deck validation is claimed.
+
+## v0.3.0 Windows prebuilt setup
+
+Windows release packaging now includes both compiled native runtimes and a small
+validation/extraction program. No compiler or source build runs during Windows
+setup. The ISO is still required and checked; assets are read from it during play.
+Linux continues to use its explicitly labelled source installer.
+
+The packager copies an explicit runtime/notice list rather than an existing
+prepared game folder. Payload hashes and the supported-disc identity are recorded
+in `release-files.json`. Original disc files, saves, generated sources and SDKs
+are excluded. FFmpeg DLLs must match the pinned upstream hashes; those vendor
+binaries may retain their upstream build-path strings. Local personal paths and
+credentials must not enter the project-built executables or release text.
+
+The frozen no-compile preparation path was exercised with build tools removed
+from PATH and rejects an invalid disc without writing game files. Both exact packaged runtimes passed isolated 900-frame startup checks, and
+the packaged desktop launcher passed D3D11/Vulkan/default selection checks. See
+[prebuilt packaging](PREBUILT_RELEASES.md).

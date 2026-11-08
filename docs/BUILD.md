@@ -2,6 +2,9 @@
 
 For native Linux/Vulkan, Wayland/X11 and Steam Deck setup, see [LINUX.md](LINUX.md).
 
+For the prebuilt Windows download, no build tools are needed. These instructions
+are for source builds; see [prebuilt releases](PREBUILT_RELEASES.md).
+
 ## Prerequisites
 
 The game runtime currently targets Windows 10/11 x64 and Direct3D 11. Install:

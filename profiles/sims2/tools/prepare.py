@@ -120,7 +120,7 @@ def prepare(iso, assets, output_dir=None, verify_only=False, report_dir=None):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--version", action="version", version="sims2-setup 0.2.4")
+    parser.add_argument("--version", action="version", version="sims2-setup 0.3.0")
     parser.add_argument("iso", type=Path)
     parser.add_argument("--output-dir", type=Path, default=DEFAULT_GAME,
                         help="Directory receiving PSP_GAME and UMD_DATA.BIN")
@@ -138,6 +138,8 @@ def main():
         parser.error("Analysis and generation require the source checkout")
     if args.verify_only and (args.analyze or args.generate or args.assets):
         parser.error("--verify-only cannot be combined with --assets, --analyze or --generate")
+    if FROZEN:
+        print("progress 0.05 Verifying your USA disc; no compilation needed", flush=True)
     identity = prepare(args.iso, args.assets, args.output_dir, args.verify_only, args.report_dir)
     print(f"Verified {identity['disc_id']}: {identity['boot_sha256']}", flush=True)
     boot = args.output_dir / "PSP_GAME/SYSDIR/BOOT.BIN"
@@ -148,9 +150,14 @@ def main():
         subprocess.run([str(args.tools_dir / "psp_recomp.exe"), str(boot), "--auto",
                         str(args.generated_dir), identity["load_base"],
                         str(identity["unit_span_bytes"])], check=True)
+    if FROZEN:
+        print("progress 1.0000 The Sims 2 PSP is ready", flush=True)
 
 
 if __name__ == "__main__":
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8", errors="replace")
     try:
         main()
     except (OSError, ValueError, KeyError, subprocess.CalledProcessError) as error:

@@ -5,9 +5,10 @@ backend**: installation default, Direct3D 11, or experimental Vulkan. Save,
 quit and relaunch through `sims2.exe`. F1 reports the active renderer. Switching
 does not replace the renderer of a running process.
 
-Windows setup defaults to `--graphics BOTH`: D3D11 is the primary runtime at the
+The v0.3.0 prebuilt Windows ZIP includes both renderers without local compilation.
+Source setup defaults to `--graphics BOTH`: D3D11 is the primary runtime at the
 install root; Vulkan and its DLLs are staged under `vulkan/`. Both startup paths
-are checked using isolated memory sticks before setup records success. Explicit
+are checked using isolated memory sticks during source setup and release validation. Explicit
 single-backend builds remain available. Building both variants takes longer.
 The selector is included starting with v0.2.5; v0.2.4 predates it.
 

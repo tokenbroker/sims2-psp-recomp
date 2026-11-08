@@ -19,8 +19,10 @@ Fresh settings default to **1920 x 1080 output with 4x native rendering**.
 Linux / Wayland / X11 build instructions and Steam Deck notes: [docs/LINUX.md](docs/LINUX.md).
 
 This repository contains the recompiler, host runtime, configuration and build
-tools. **It contains no disc image, extracted game files, generated game code,
-saves or playable game executable.** Supply your own legally acquired USA ISO.
+tools. **The source tree contains no disc image, extracted game files, generated game
+sources, saves or playable executable.** Windows prebuilt release archives include
+compiled native game code, with no original disc files or assets. Supply your own
+legally acquired USA ISO.
 
 Input rebinding and mouse controls: [INPUT.md](docs/INPUT.md).
 Benchmark methodology: [BENCHMARKS.md](docs/BENCHMARKS.md).
@@ -52,29 +54,33 @@ for the user-reported presentation issue.
 | Windows renderers | Direct3D 11; optional Vulkan in dual-backend builds |
 | Linux | Native Vulkan with Wayland/X11; physical Steam Deck validation pending |
 
-**v0.2.5 includes** Windows renderer switching, Vulkan performance and
-presentation fixes, save-picker improvements and experimental 120/240 Hz engine
-modes. Dual-renderer setup compiles shared game code once; Windows retries keep
-unchanged generated files. Native engine timing remains the default. Vulkan
-and high engine rates still need broader hardware and gameplay reports.
+**Windows v0.3.0 removes local compilation from setup.** It includes prebuilt
+D3D11 and Vulkan runtimes. RecompLauncher verifies your ISO and prepares the
+required local files; it no longer generates or compiles hundreds of units on
+your machine. Disc verification and download time still apply.
 
 ## Download
 
-[Latest release: v0.2.5](https://github.com/tokenbroker/sims2-psp-recomp/releases/latest)
+[Latest release: v0.3.0](https://github.com/tokenbroker/sims2-psp-recomp/releases/latest)
 
-| Platform | Download |
-| --- | --- |
-| Windows 10/11 x64 | [Windows setup ZIP](https://github.com/tokenbroker/sims2-psp-recomp/releases/download/v0.2.5/Sims2PSP-win64-setup-0.2.5.zip) |
-| Linux x64, Vulkan / Wayland / X11 | [Linux setup archive](https://github.com/tokenbroker/sims2-psp-recomp/releases/download/v0.2.5/Sims2PSP-linux-x64-setup-0.2.5.tar.gz) |
+| Platform | Download | First setup |
+| --- | --- | --- |
+| Windows 10/11 x64 | [Prebuilt Windows ZIP](https://github.com/tokenbroker/sims2-psp-recomp/releases/download/v0.3.0/Sims2PSP-win64-setup-0.3.0.zip) | Verify your USA ISO; no compiler, CMake or Python installation |
+| Linux x64, Vulkan / Wayland / X11 | [Linux source installer](https://github.com/tokenbroker/sims2-psp-recomp/releases/download/v0.3.0/Sims2PSP-linux-x64-setup-0.3.0.tar.gz) | Compile locally using the documented dependencies |
 
-**These are source installers.** Supply your own supported USA ISO; first setup
-compiles the game locally. No prebuilt game runtime or disc data is included.
-Windows bundles Python and requires CMake and Visual Studio C++ tools. Linux
-users run `./setup.sh` after installing the documented build dependencies.
-See [BUILD.md](docs/BUILD.md) and [LINUX.md](docs/LINUX.md).
+**Windows:** extract the whole ZIP, import its folder into RecompLauncher and
+select your supported USA ISO. Keep the ISO available during play. The Visual
+C++ runtime and graphics driver must be installed; RecompLauncher checks runtime
+prerequisites. First setup reads the ISO and extracts only the required local
+files. Later Play starts the installed runtime directly. Settings and saves stay
+in the per-user folder when the runtime is replaced.
 
-Common display, audio and input settings are also available on the RecompLauncher
-game page starting with v0.2.1. Full controls remain in F1.
+**Linux:** this release still uses the source installer. It does not yet offer
+the Windows no-compile setup experience. See [LINUX.md](docs/LINUX.md).
+
+Source builds remain available on both platforms. See [BUILD.md](docs/BUILD.md)
+and [prebuilt release packaging](docs/PREBUILT_RELEASES.md). Full display, audio
+and input settings remain in F1; common options are also exposed by RecompLauncher.
 
 ## Build and run
 

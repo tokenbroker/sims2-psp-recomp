@@ -30,3 +30,12 @@ ImGui SDL3/SDL GPU backends. Its PSP vertex/lighting/texture behavior follows th
 existing MIT host implementation. GLSL shaders are independent host code. Linux
 uses distribution FreeType/fontconfig for substitute fonts. No Xbox GPU source
 was copied from the reference ports.
+
+## Prebuilt Windows release artifacts
+
+From v0.3.0, Windows release ZIPs intentionally include compiled native game
+code built from the supported local ISO, alongside the host runtime and attributed
+dependencies. Generated sources and original game files remain excluded from
+the repository and release payload. Users provide their own matching ISO for
+validation, executable preparation and asset access. This does not change the
+source-tree publication guard or license third-party game content under MIT.
