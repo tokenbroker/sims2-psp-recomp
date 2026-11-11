@@ -111,29 +111,29 @@ int main() {
         require(high_kernel.now_us()==1000000u/hz,"High-rate wait did not advance scheduler");
         call(high,0xDBA6C4C4u,0x08804000u);
         require(high.cpu().fpr[0]==static_cast<float>(hz),"Reported display rate mismatch");
-#if defined(SIMS2_EUROPE)
+        constexpr auto layout = sims2::game_timing_layout;
         bool rejected = false;
-        try { sims2::install_game_timing(high); }
-        catch (const psprecomp::Error &) { rejected = true; }
-        require(rejected && !high.has_function(0x08937F00u),
-                "European build installed an unverified USA timing hook");
-#else
+        try { sims2::install_game_timing(high); } catch (const psprecomp::Error &) { rejected = true; }
+        require(rejected, "Invalid regional timing code accepted");
+        high.memory().store32(layout.getter, 0x3C040000u | ((layout.context + 0x8000u) >> 16));
+        high.memory().store32(layout.getter + 4u, 0x24840000u | (layout.context & 0xFFFFu));
+        high.memory().store32(layout.getter + 8u, 0x03E00008u);
+        high.memory().store32(layout.getter + 12u, 0xC4800048u);
         sims2::install_game_timing(high);
         high.cpu().set_gpr(31u,0x08805000u);
         high.register_function(0x08805000u,+[](psprecomp::Runtime &rt,psprecomp::AllegrexContext &){rt.stop("test return");},"test return");
-        high.run(0x08937F00u,4u);
-        require(high.stop_reason()=="test return" && high.cpu().gpr[4]==0x08A2FA14u,
+        high.run(layout.getter,4u);
+        require(high.stop_reason()=="test return" && high.cpu().gpr[4]==layout.context,
                 "Timestep hook did not preserve its return convention");
-        const auto period=std::bit_cast<float>(high.memory().load32(0x08A2FA5Cu));
+        const auto period=std::bit_cast<float>(high.memory().load32(layout.context + 0x48u));
         require(std::abs(period*hz-1.0f)<0.000001f &&
-                std::bit_cast<float>(high.memory().load32(0x08A2FA58u))==hz,
+                std::bit_cast<float>(high.memory().load32(layout.context + 0x44u))==hz,
                 "Timestep and reciprocal do not agree");
-#endif
     }
     require(sims2::kernel::configure_guest_display(0u) && sims2::kernel::vblank_time_us(1u)==16683u,
             "Native timing did not restore");
     psprecomp::Runtime native;
     sims2::install_game_timing(native);
-    require(!native.has_function(0x08937F00u),"Native mode installed an unnecessary override");
+    require(!native.has_function(sims2::game_timing_layout.getter),"Native mode installed an unnecessary override");
     return 0;
 }

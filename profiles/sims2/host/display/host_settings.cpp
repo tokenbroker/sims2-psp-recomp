@@ -40,9 +40,7 @@ float effective_render_scale(const HostSettings &settings,unsigned output_height
 }
 HostSettings validated_settings(HostSettings settings) {
     if (settings.system_language < 1 || settings.system_language > 5) settings.system_language = 1;
-#if defined(SIMS2_EUROPE)
-    settings.engine_fps = 0; // EU timing hook is not yet validated.
-#else
+#if !defined(SIMS2_EUROPE)
     settings.system_language = 1; // Preserve the USA profile's English-only behavior.
 #endif
     if(unsigned(settings.graphics_backend)>unsigned(GraphicsBackend::Vulkan))settings.graphics_backend=GraphicsBackend::Default;

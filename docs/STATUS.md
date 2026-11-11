@@ -218,3 +218,26 @@ wrong-region rejection. The European Linux host configuration passed all 49
 synthetic checks. Launcher manifests were schema-checked, with independent USA
 and Europe settings. Native Windows startup/UI checks and European settings/
 language tests passed; a full EU playthrough remains unverified.
+
+
+## v0.4.1 European feature parity
+
+Europe now exposes the same Native/experimental 120/240 Hz engine choices as
+USA. Both use the shared F1 controls, settings validation, display clock and
+timestep correction; only verified regional code/data addresses differ. A
+relocated instruction signature is checked before installing either high-rate
+hook. Native remains the default and installs no override.
+
+Bounded Windows D3D11 EU gameplay runs sampled the world clock at matched guest
+times from 40 through 45 seconds. Native, 120 Hz and 240 Hz each advanced five
+game minutes across that interval. The 240 Hz run started one minute ahead after
+loading; progression matched. High-rate context fields held the requested rate
+and reciprocal timestep. Scripted movement rendered in the garage. These checks
+use private copied save fixtures and do not establish cross-region save support.
+
+Both Windows regional timing/settings tests passed. All 49 Linux EU host tests
+passed under Xvfb with dummy audio. Packaged D3D11/Vulkan gameplay checks cover
+both regional executables at 240 Hz. These are bounded tests, not a complete
+playthrough, audible audio validation, sustained physical-monitor FPS or physical
+Steam Deck validation. Regional language content, save IDs and settings paths
+remain intentionally distinct.

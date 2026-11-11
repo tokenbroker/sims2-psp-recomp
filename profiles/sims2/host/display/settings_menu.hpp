@@ -193,11 +193,7 @@ struct SettingsMenu : FrameHistory {
                             }
                             ImGui::EndCombo();
                         }
-#if defined(SIMS2_EUROPE)
-                        note("Limits presentation; European engine timing remains Native.");
-#else
                         note("Limits presentation. Select an engine rate below to render additional game frames.");
-#endif
 #if defined(SIMS2_EUROPE)
                         row("Game language");
                         const unsigned languages[]{1, 2, 4, 3, 5};
@@ -206,10 +202,7 @@ struct SettingsMenu : FrameHistory {
                         if (ImGui::Combo("##game_language", &language, "English\0French\0German\0Spanish\0Italian\0"))
                             draft.system_language = languages[language];
                         note("Save and restart to change the game's language.");
-                        row("Engine frame rate");
-                        ImGui::TextUnformatted("Native (European build)");
-                        note("Experimental engine rates are not yet validated for this executable.");
-#else
+#endif
                         row("Engine frame rate");
                         int engine = draft.engine_fps == 240u ? 2 : draft.engine_fps == 120u ? 1 : 0;
                         if (ImGui::Combo("##engine_fps", &engine,
@@ -220,7 +213,6 @@ struct SettingsMenu : FrameHistory {
                              "VSync and the presentation cap can limit visible FPS.");
                         if(draft.engine_fps!=kernel::guest_display_hz)
                             note("Engine rate change pending: Save, close the game, then launch again.");
-#endif
                         ImGui::BeginDisabled(!hdr_supported);
                         row("HDR");
                         int hdr = int(draft.hdr);

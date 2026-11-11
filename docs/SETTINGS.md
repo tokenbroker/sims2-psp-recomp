@@ -120,4 +120,4 @@ v0.4.0 supports the European ULES-00211 executable. Use **F1 > Display > Game
 language** (English/French/German/Spanish/Italian), Save and restart. This changes
 the game's language; the host F1 interface remains English. The launcher page
 exposes separate **Europe:** controls. EU preferences use `settings-europe.ini`;
-USA settings remain separate. EU engine timing is currently Native only.
+USA settings remain separate. Both regions offer Native and experimental 120/240 Hz engine timing from v0.4.1.

@@ -19,7 +19,7 @@ RUNTIME = ("sims2_probe.exe", "SDL3.dll", "avcodec-61.dll", "avutil-59.dll")
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--version", default="0.4.0")
+    parser.add_argument("--version", default="0.4.1")
     parser.add_argument("--d3d11", type=Path, required=True)
     parser.add_argument("--vulkan", type=Path, required=True)
     parser.add_argument("--europe-d3d11", type=Path)
@@ -99,7 +99,7 @@ def main():
         f"Extract this whole ZIP and import its folder into RecompLauncher. Select your {'USA ULUS-10031 or Europe ULES-00211' if args.europe_d3d11 else 'USA ULUS-10031'} ISO.\n"
         "Setup verifies the disc and prepares local game files. No compiler, CMake, Visual Studio or separate Python installation is required.\n"
         "This download includes compiled native game code. It includes no original PSP executable, disc image, game assets or saves.\n"
-        f"{'EU: game language is in F1 > Display; Save and restart. Native timing only.' if args.europe_d3d11 else 'USA runtime; English language.'}\n"
+        f"{'EU: game language is in F1 > Display; Save and restart. Native and experimental 120/240 Hz timing.' if args.europe_d3d11 else 'USA runtime; English language.'}\n"
         "Keep your ISO available: game data is read from it during play.\n"
         "F1 or L3+R3 opens settings; F2 opens performance statistics. D3D11 is the default; Vulkan requires Save and restart.\n"
         "Settings/saves stay under %LOCALAPPDATA%/Sims2PSPRecomp. Updating the runtime does not replace them.\n"

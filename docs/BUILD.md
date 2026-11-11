@@ -217,5 +217,5 @@ requests keep independent checks. Runtime tests and privacy checks are unchanged
 
 For Europe, the build scripts select `SIMS2_REGION=EUROPE` and generate its own
 corpus. Use separate `--workspace` directories for USA and EU. European F1
-language choices require Save and restart; experimental engine rates remain
-USA-only. See [regional validation](REGIONAL_SUPPORT.md).
+language choices require Save and restart; experimental engine rates support
+both regions from v0.4.1. See [regional validation](REGIONAL_SUPPORT.md).

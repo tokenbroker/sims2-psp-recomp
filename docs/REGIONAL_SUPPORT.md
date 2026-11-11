@@ -6,7 +6,7 @@ v0.4.0 adds the verified European executable requested in
 | Disc | Languages | Engine timing |
 | --- | --- | --- |
 | USA ULUS-10031 | English | Native; experimental 120/240 Hz |
-| Europe ULES-00211 | English, French, German, Spanish, Italian | Native only |
+| Europe ULES-00211 | English, French, German, Spanish, Italian | Native; experimental 120/240 Hz |
 
 Exact executable SHA-256 identities are recorded in
 [identity.json](../profiles/sims2/config/identity.json). Other revisions, regions
@@ -27,9 +27,11 @@ Europe uses `settings-europe.ini`. Existing USA input/audio/graphics preferences
 are not overwritten. Each game uses its own PSP save identity: `ULUS10031` or
 `ULES00211`. Cross-region save interchange is not established.
 
-Europe currently uses Native engine timing. Its settings cannot activate the
-USA-specific high-FPS hook at unrelated addresses. Display resolution/scaling,
-aspect/camera choices, controls, audio and renderer switching remain available.
+From v0.4.1, both regions expose the same F1 engine-rate choices: Native,
+experimental 120 Hz and experimental 240 Hz. Each uses its own verified timing
+getter and context addresses; a relocated instruction signature must match before
+the override is installed. Native remains the default. Display resolution/scaling,
+aspect/camera choices, controls, audio and renderer switching use shared code.
 
 A prepared BOOT copy from the other supported region is tolerated only after
 validating the selected ISO: the runtime loads that ISO's executable instead.
@@ -63,9 +65,12 @@ local ISO path. Never publish disc images, original executables or saves.
 - D3D11 and Vulkan booted the European game and rendered localized menus.
 - A French Create-A-Sim flow created an encrypted regional save. Both renderers
   decrypted/reloaded copies and ran the opening story sequence with paced audio.
-- Language persistence, Native-only EU timing and separate settings paths were
+- Language persistence, regional engine-rate settings and separate settings paths were
   checked, including a Linux settings test. Regional routing was checked against
   synthetic malformed ISOs and both owned discs.
+
+- v0.4.1 adds matched-time EU Native/120/240 Hz gameplay progression checks and
+  both-region, both-renderer packaged high-rate startup/save-load checks.
 
 These are bounded regional smoke checks, not a complete European playthrough.
 The handheld/audio issue remains separate and is not claimed fixed here.

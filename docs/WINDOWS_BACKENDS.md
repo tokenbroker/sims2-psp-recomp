@@ -52,5 +52,5 @@ source setup compiles each variant independently.
 
 v0.4.0 includes both renderers for USA and Europe. Renderer selection is saved
 per region. The frontend routes European ISOs to `europe/`, with its Vulkan
-companion under `europe/vulkan/`. Native EU timing is independent of the saved
-USA experimental engine rate. Game-language changes require Save and restart.
+companion under `europe/vulkan/`. EU engine-rate preferences are independent of saved
+USA preferences; both expose Native and experimental 120/240 Hz from v0.4.1. Game-language changes require Save and restart.

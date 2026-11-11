@@ -27,16 +27,13 @@ int main() {
             std::string error;
             if (!save_host_settings(path, settings, error)) throw std::runtime_error(error);
             auto loaded = load_host_settings(path);
-            #if defined(SIMS2_EUROPE)
+
+#if defined(SIMS2_EUROPE)
             if (loaded.system_language != language) throw std::runtime_error("Language did not persist");
 #else
             if (loaded.system_language != 1) throw std::runtime_error("USA language behavior changed");
 #endif
-#if defined(SIMS2_EUROPE)
-            if (loaded.engine_fps != 0) throw std::runtime_error("Unverified EU timing hook was enabled");
-#else
-            if (loaded.engine_fps != 240) throw std::runtime_error("USA timing preference changed");
-#endif
+            if (loaded.engine_fps != 240) throw std::runtime_error("Regional timing preference did not persist");
         }
         std::filesystem::remove(path);
         return 0;

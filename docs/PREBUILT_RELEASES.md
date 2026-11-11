@@ -69,3 +69,11 @@ Package both regions with `--europe-d3d11` and `--europe-vulkan` in addition to
 the USA renderer folders. Each path must point at its matching regional build.
 Launcher configs/settings are separate and schema-checked. See
 [regional support](REGIONAL_SUPPORT.md) for language controls and validation.
+
+
+## v0.4.1 regional feature parity
+
+The Windows package includes the same experimental 120/240 Hz engine controls
+for both regions. Each runtime checks its regional timing getter signature;
+Native remains the default. Settings and saves remain separate per region.
+The Linux source installer uses the same regional timing layouts.
