@@ -179,3 +179,22 @@ under investigation. A paced local movie test and a PCM scheduling experiment
 did not establish a fix for the reported event. Optional per-channel queue
 telemetry is now available in source builds; the normal playback order is
 unchanged. See [audio reports and diagnostic limits](AUDIO_REPORTS.md).
+
+## Open issue work: handheld performance and European support
+
+For issue #1, PCM blocks are copied out of guest memory in one bounded operation
+on little-endian hosts, removing per-sample address resolution. Tests verify
+signed stereo/mono PCM, uncached memory aliases and volume delivery. A shared
+F1 low-load preset lowers render load without resetting player input/audio
+preferences. Save/reload preservation and both presenter paths are tested.
+The ROG Ally report remains open pending physical-device feedback.
+
+For issue #2, a metadata-only owned-disc inspector and malformed-ELF tests are
+available. No European executable has been supplied, so EU compatibility is
+not enabled or claimed. See [regional support](REGIONAL_SUPPORT.md).
+
+The v0.3.2 packaged D3D11 and Vulkan runtimes both passed a paced 1,200-frame
+movie/save-load/gameplay check with SDL dummy-device audio enabled and isolated
+save copies. All 45 Linux host tests and the targeted Windows PCM, preset,
+settings-menu and disc-inspection checks passed. No physical Ally or European
+compatibility claim follows from these checks.

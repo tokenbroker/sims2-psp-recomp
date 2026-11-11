@@ -19,7 +19,7 @@ existing playback order is retained. Both runs reached the same 900-frame
 checkpoint, draw count and audio submission counts. This does not reproduce or
 fix the reported audible event on the reviewer's device.
 
-Source builds now log per-channel `submissions` and `empty_queue_submissions`
+v0.3.2 and later source builds log per-channel `submissions` and `empty_queue_submissions`
 when `SIMS2_PROFILE=1` is enabled. These query both input PCM and converted output.
 The first submission is excluded. An empty queue may be an intentional gap
 between effects, resampler buffering or playback starvation. It is not an
@@ -39,10 +39,14 @@ changing many settings at once when comparing.
 
 For a source-build diagnostic run, set `SIMS2_PROFILE=1` before launching and
 close the game normally after the affected scene. The profile lines are written
-to the runtime log on shutdown. They become available in builds containing this
-source change; the v0.3.1 installer predates them. Review logs for personal paths
+to the runtime log on shutdown. They are included in v0.3.2; the v0.3.1 installer predates them. Review logs for personal paths
 before sharing; do not upload ISOs, prepared game files or saves.
 
 The existing SDL audio test checks device/stream creation, all nine channels,
 PCM conversion and queue backpressure. It does not establish stutter-free
 cutscene playback across physical audio devices.
+
+v0.3.2 also removes per-sample memory resolution from PCM block reads and adds
+**F1 > Quality > Handheld / low load**. These changes reduce avoidable host work
+and provide a lower-load configuration; they do not establish that the reported
+cutscene break or ROG Ally issue is fixed. European support remains separate.

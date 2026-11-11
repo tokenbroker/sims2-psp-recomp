@@ -100,3 +100,16 @@ PSP game frames or monitor scanout. Long frame intervals remain in the graph and
 average, including stalls over 250 ms. Time deliberately spent in the settings
 menu, or without an available output surface, is excluded. Both backends use
 the same bounded timing history.
+
+## Handheld / low-load preset
+
+v0.3.2 adds **F1 > Quality > Handheld / low load** (also reachable
+with L3+R3). It selects 1280x720 output, fixed 2x internal rendering, Native engine
+timing, a 60 FPS presentation cap, VSync, SDR and no forced anisotropic override.
+Save to persist; restart if the previous engine rate was 120/240 Hz. Borderless
+output may still follow the desktop resolution, while internal rendering stays
+at 2x. Existing controls, volume/mute, aspect and renderer choice are preserved.
+
+This gives integrated-GPU/handheld users a lower-load configuration to try. It
+has not been physically validated on the reported ROG Ally and is not a claim
+that its FPS/audio issue is resolved. Desktop defaults remain 1920x1080/4x.

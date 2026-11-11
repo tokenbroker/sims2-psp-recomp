@@ -53,7 +53,7 @@ def source_files():
         "profiles/sims2/launcher/CMakeLists.txt",
         "profiles/sims2/third_party/SDL3/LICENSE.txt",
     } | NATIVE_DEPENDENCIES
-    for name in ("build_from_iso.py", "check_local_build.py", "prepare.py",
+    for name in ("build_from_iso.py", "check_local_build.py", "prepare.py", "inspect_disc.py",
                  "package_local.py", "package_playable.py", "package_sources.py", "runtime_package.py", "setup_process.py", "package_bootstrap.py", "fetch_dependencies.py", "build_linux.py", "embed_spirv.py", "benchmark.py", "doctor.py", "package_release.py", "coverage_report.py"):
         files.add("profiles/sims2/tools/" + name)
     for directory in ("include", "src", "tests", "profiles/sims2/host", "profiles/sims2/tests",

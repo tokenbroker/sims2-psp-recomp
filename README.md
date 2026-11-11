@@ -54,19 +54,19 @@ for the user-reported presentation issue.
 | Windows renderers | Direct3D 11; optional Vulkan in dual-backend builds |
 | Linux | Native Vulkan with Wayland/X11; physical Steam Deck validation pending |
 
-**Windows v0.3.1 removes local compilation from setup.** It includes prebuilt
+**Windows v0.3.2 removes local compilation from setup.** It includes prebuilt
 D3D11 and Vulkan runtimes. RecompLauncher verifies your ISO and prepares the
 required local files; it no longer generates or compiles hundreds of units on
 your machine. Disc verification and download time still apply.
 
 ## Download
 
-[Latest release: v0.3.1](https://github.com/tokenbroker/sims2-psp-recomp/releases/latest)
+[Latest release: v0.3.2](https://github.com/tokenbroker/sims2-psp-recomp/releases/latest)
 
 | Platform | Download | First setup |
 | --- | --- | --- |
-| Windows 10/11 x64 | [Prebuilt Windows ZIP](https://github.com/tokenbroker/sims2-psp-recomp/releases/download/v0.3.1/Sims2PSP-win64-setup-0.3.1.zip) | Verify your USA ISO; no compiler, CMake or Python installation |
-| Linux x64, Vulkan / Wayland / X11 | [Linux source installer](https://github.com/tokenbroker/sims2-psp-recomp/releases/download/v0.3.1/Sims2PSP-linux-x64-setup-0.3.1.tar.gz) | Compile locally using the documented dependencies |
+| Windows 10/11 x64 | [Prebuilt Windows ZIP](https://github.com/tokenbroker/sims2-psp-recomp/releases/download/v0.3.2/Sims2PSP-win64-setup-0.3.2.zip) | Verify your USA ISO; no compiler, CMake or Python installation |
+| Linux x64, Vulkan / Wayland / X11 | [Linux source installer](https://github.com/tokenbroker/sims2-psp-recomp/releases/download/v0.3.2/Sims2PSP-linux-x64-setup-0.3.2.tar.gz) | Compile locally using the documented dependencies |
 
 **Windows:** extract the whole ZIP, import its folder into RecompLauncher and
 select your supported USA ISO. Keep the ISO available during play. The Visual
@@ -140,6 +140,10 @@ Native Linux Vulkan builds support Wayland and X11. See
 [Linux validation and Steam Deck notes](docs/LINUX.md).
 
 Details and hardware limitations: [Settings](docs/SETTINGS.md).
+
+For integrated-GPU/handheld devices, try **F1 > Quality > Handheld / low load**.
+Save and restart if changing the engine rate. The ROG Ally report remains under
+investigation; this preset is not physical-device certification.
 
 ## Controls
 

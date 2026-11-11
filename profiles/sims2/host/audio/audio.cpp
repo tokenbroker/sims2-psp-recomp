@@ -2,6 +2,7 @@
 #include "audio/audio.hpp"
 
 #include <algorithm>
+#include <bit>
 #include <vector>
 
 namespace sims2::audio {
@@ -109,8 +110,15 @@ std::uint32_t Audio::enqueue(std::int32_t index, Channel &channel, std::uint32_t
         auto &memory = kernel_->runtime().memory();
         if (memory.contains(buffer, values * 2u)) {
             std::vector<std::int16_t> samples(values);
-            for (std::uint32_t i = 0; i < values; ++i)
-                samples[i] = static_cast<std::int16_t>(memory.load16(buffer + i * 2u));
+            // Audio blocks are contiguous PCM, not scalar CPU loads. Preserve
+            // the guest-memory bounds/alias handling while copying each block
+            // once instead of resolving its address for every 16-bit sample.
+            if constexpr (std::endian::native == std::endian::little) {
+                memory.copy_out(buffer, {reinterpret_cast<std::uint8_t *>(samples.data()), values * 2u});
+            } else {
+                for (std::uint32_t i = 0; i < values; ++i)
+                    samples[i] = static_cast<std::int16_t>(memory.load16(buffer + i * 2u));
+            }
             sink_(index, samples, mono, channel.left_volume, channel.right_volume);
         }
     }

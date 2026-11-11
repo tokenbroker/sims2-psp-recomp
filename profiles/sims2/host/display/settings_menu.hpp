@@ -1,6 +1,7 @@
 #pragma once
 #include "display/settings_overlay.hpp"
 #include "display/frame_history.hpp"
+#include "display/performance_presets.hpp"
 #include "kernel/guest_clock.hpp"
 #include <algorithm>
 #include <array>
@@ -229,6 +230,11 @@ struct SettingsMenu : FrameHistory {
                     ImGui::EndTabItem();
                 }
                 if (ImGui::BeginTabItem("Quality")) {
+                    if (ImGui::Button("Handheld / low load")) {
+                        draft = handheld_preset(draft);
+                        status = "Low-load preset selected. Save to keep it; restart if the engine rate changed.";
+                    }
+                    note("720p output, 2x internal rendering, Native engine rate, 60 FPS presentation cap, SDR. Save then restart if changing engine rate.");
                     if (ImGui::BeginTable("quality", 2, ImGuiTableFlags_SizingFixedFit)) {
                         ImGui::TableSetupColumn("label", ImGuiTableColumnFlags_WidthFixed, 210 * scale);
                         ImGui::TableSetupColumn("control", ImGuiTableColumnFlags_WidthStretch);
