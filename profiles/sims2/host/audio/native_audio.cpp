@@ -13,6 +13,7 @@ struct NativeAudio::Impl {
     SDL_AudioDeviceID device{};
     std::array<SDL_AudioStream *, 9> streams{};
     std::uint64_t frames{}, play_ns{}, max_play_ns{}, max_queued_bytes{}, waits{};
+    std::array<std::uint64_t, 9> submissions{}, empty_queue_submissions{};
     bool profile = std::getenv("SIMS2_PROFILE") != nullptr;
     bool silent = std::getenv("SIMS2_AUDIO_SILENT") != nullptr;
     bool initialized{};
@@ -20,6 +21,11 @@ struct NativeAudio::Impl {
         if (profile) std::cerr << "[profile] native_audio_ms=" << play_ns / 1000000.0
             << " max_audio_call_ms=" << max_play_ns / 1000000.0 << " max_queued_audio_ms=" << max_queued_bytes * 1000 / (44100 * 4)
             << " audio_backpressure_waits=" << waits << '\n';
+        if (profile) for (std::size_t i = 0; i < streams.size(); ++i) {
+            if (submissions[i]) std::cerr << "[profile] audio_channel=" << i
+                << " submissions=" << submissions[i]
+                << " empty_queue_submissions=" << empty_queue_submissions[i] << '\n';
+        }
         for (auto *stream : streams) if (stream) SDL_DestroyAudioStream(stream);
         if (device) SDL_CloseAudioDevice(device);
         if (initialized) SDL_QuitSubSystem(SDL_INIT_AUDIO);
@@ -68,6 +74,17 @@ void NativeAudio::play(std::int32_t index, std::span<const std::int16_t> samples
     auto *stream = impl_->streams[static_cast<std::size_t>(index)];
     auto queued = SDL_GetAudioStreamQueued(stream);
     if (queued < 0) throw psprecomp::Error(std::string("Cannot query audio queue: ") + SDL_GetError());
+    if (impl_->profile) {
+        const auto channel = static_cast<std::size_t>(index);
+        const auto available = SDL_GetAudioStreamAvailable(stream);
+        if (available < 0) throw psprecomp::Error(std::string("Cannot query available audio: ") + SDL_GetError());
+        // Exclude the first block. Empty submissions can also be intentional
+        // silence between effects, so this is diagnostic evidence, not a count
+        // of audible underruns. Count converted output as well as input PCM.
+        if (impl_->submissions[channel] && queued == 0 && available == 0)
+            ++impl_->empty_queue_submissions[channel];
+        ++impl_->submissions[channel];
+    }
     // The guest can advance while loading without presenting a framebuffer.
     // Apply playback backpressure instead of discarding sound when it runs ahead.
     if (queued > 44100 * 4 / 10) {

@@ -171,3 +171,11 @@ Both rejected an invalid ISO and a mismatching existing prepared executable.
 The framework tests passed, including memory/file SHA-256 equivalence and the
 standard empty-input digest. This covers the retained-prepared-state failure
 missed by the earlier fresh-install check.
+
+## Cutscene and handheld audio reports
+
+Sound breaks during cutscenes and frame-drop/audio stutter on a ROG Ally remain
+under investigation. A paced local movie test and a PCM scheduling experiment
+did not establish a fix for the reported event. Optional per-channel queue
+telemetry is now available in source builds; the normal playback order is
+unchanged. See [audio reports and diagnostic limits](AUDIO_REPORTS.md).
