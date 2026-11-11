@@ -237,7 +237,9 @@ use private copied save fixtures and do not establish cross-region save support.
 
 Both Windows regional timing/settings tests passed. All 49 Linux EU host tests
 passed under Xvfb with dummy audio. Packaged D3D11/Vulkan gameplay checks cover
-both regional executables at 240 Hz. These are bounded tests, not a complete
+both regional executables at 240 Hz. The initial concurrent long EU Vulkan run
+exceeded its timeout after loading the save; the outstanding USA run was stopped.
+Shorter serial runs check loading and gameplay without that concurrent workload. These are bounded tests, not a complete
 playthrough, audible audio validation, sustained physical-monitor FPS or physical
 Steam Deck validation. Regional language content, save IDs and settings paths
 remain intentionally distinct.
