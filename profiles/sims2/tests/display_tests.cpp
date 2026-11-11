@@ -111,6 +111,13 @@ int main() {
         require(high_kernel.now_us()==1000000u/hz,"High-rate wait did not advance scheduler");
         call(high,0xDBA6C4C4u,0x08804000u);
         require(high.cpu().fpr[0]==static_cast<float>(hz),"Reported display rate mismatch");
+#if defined(SIMS2_EUROPE)
+        bool rejected = false;
+        try { sims2::install_game_timing(high); }
+        catch (const psprecomp::Error &) { rejected = true; }
+        require(rejected && !high.has_function(0x08937F00u),
+                "European build installed an unverified USA timing hook");
+#else
         sims2::install_game_timing(high);
         high.cpu().set_gpr(31u,0x08805000u);
         high.register_function(0x08805000u,+[](psprecomp::Runtime &rt,psprecomp::AllegrexContext &){rt.stop("test return");},"test return");
@@ -121,6 +128,7 @@ int main() {
         require(std::abs(period*hz-1.0f)<0.000001f &&
                 std::bit_cast<float>(high.memory().load32(0x08A2FA58u))==hz,
                 "Timestep and reciprocal do not agree");
+#endif
     }
     require(sims2::kernel::configure_guest_display(0u) && sims2::kernel::vblank_time_us(1u)==16683u,
             "Native timing did not restore");

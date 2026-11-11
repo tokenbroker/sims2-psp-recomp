@@ -13,9 +13,9 @@ The game runtime currently targets Windows 10/11 x64 and Direct3D 11. Install:
 2. CMake 3.21 or newer, available on PATH.
 3. Visual Studio 2022 or Build Tools 2022, including Desktop development with C++
    and the Windows SDK.
-4. A plain ISO9660 dump of your own **USA ULUS-10031** PSP disc.
+4. A plain ISO9660 dump of your own **USA ULUS-10031 or Europe ULES-00211** PSP disc.
 
-Other regions/executables are not supported. Setup checks the disc ID and exact
+Other regions/revisions/executables are not supported. Setup checks the disc ID and its exact
 BOOT.BIN SHA-256 listed in `profiles/sims2/config/identity.json`. A checksum is an
 identifier, not game data. No executable decryption is performed.
 
@@ -214,3 +214,8 @@ CI runs on branch pushes, pull requests and manual dispatch. Publishing a tag
 for an already-tested commit does not start a duplicate five-job matrix. A newer
 push to the same ref cancels its obsolete run; different branches and pull
 requests keep independent checks. Runtime tests and privacy checks are unchanged.
+
+For Europe, the build scripts select `SIMS2_REGION=EUROPE` and generate its own
+corpus. Use separate `--workspace` directories for USA and EU. European F1
+language choices require Save and restart; experimental engine rates remain
+USA-only. See [regional validation](REGIONAL_SUPPORT.md).

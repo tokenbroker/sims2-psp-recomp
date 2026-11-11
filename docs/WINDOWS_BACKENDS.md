@@ -49,3 +49,8 @@ quality, a full playthrough or sustained high-FPS Vulkan performance. Test saves
 game-derived code, binaries and captures remain private local outputs. The local
 companion build reused matching backend-independent MSVC/O1 AOT objects; normal
 source setup compiles each variant independently.
+
+v0.4.0 includes both renderers for USA and Europe. Renderer selection is saved
+per region. The frontend routes European ISOs to `europe/`, with its Vulkan
+companion under `europe/vulkan/`. Native EU timing is independent of the saved
+USA experimental engine rate. Game-language changes require Save and restart.

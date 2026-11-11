@@ -198,3 +198,23 @@ movie/save-load/gameplay check with SDL dummy-device audio enabled and isolated
 save copies. All 45 Linux host tests and the targeted Windows PCM, preset,
 settings-menu and disc-inspection checks passed. No physical Ally or European
 compatibility claim follows from these checks.
+
+## v0.4.0 European executable and languages
+
+The owned ULES-00211 copy is now supported with its own 494-unit corpus and
+strict executable identity, not a USA identity bypass. D3D11 and Vulkan reached
+localized Create-A-Sim; English/French/German/Spanish/Italian labels were checked.
+A new French character produced an encrypted regional save; both backends
+reloaded copies and ran the opening story sequence with paced dummy-device audio.
+
+Runtime selection follows the actual ISO. USA and EU preferences are separate,
+and launcher-page Europe controls include language selection. EU remains Native
+engine timing until its game-specific high-FPS hook is validated. Existing USA
+features remain available. See [regional validation limits](REGIONAL_SUPPORT.md).
+
+Final regional validation also checked all four packaged runtime paths with
+stale prepared data from the other known region, encrypted save loads, and
+wrong-region rejection. The European Linux host configuration passed all 49
+synthetic checks. Launcher manifests were schema-checked, with independent USA
+and Europe settings. Native Windows startup/UI checks and European settings/
+language tests passed; a full EU playthrough remains unverified.

@@ -1,6 +1,7 @@
 #pragma once
 #include "kernel/guest_clock.hpp"
 #include "psprecomp/runtime.hpp"
+#include "psprecomp/common.hpp"
 #include <bit>
 
 namespace sims2 {
@@ -10,6 +11,10 @@ namespace sims2 {
 // by the engine's conversion between ticks and seconds. Native mode installs
 // no replacement at all. See docs/HIGH_FPS_RESEARCH.md for measured coverage.
 inline void install_game_timing(psprecomp::Runtime &runtime) {
+#if defined(SIMS2_EUROPE)
+    if (kernel::guest_display_hz) throw psprecomp::Error("European timing hook is not validated; select Native engine timing");
+    return;
+#endif
     if (!kernel::guest_display_hz) return;
     runtime.register_function(0x08937F00u, +[](psprecomp::Runtime &rt, psprecomp::AllegrexContext &ctx) {
         const float hz = kernel::guest_display_frequency();

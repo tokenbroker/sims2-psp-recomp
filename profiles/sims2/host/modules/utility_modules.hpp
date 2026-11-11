@@ -27,6 +27,6 @@ private:
 };
 
 void register_utility_modules(UtilityModules &modules, psprecomp::Runtime &runtime);
-void register_system_parameters(psprecomp::Runtime &runtime, std::int32_t utc_offset_minutes);
+void register_system_parameters(psprecomp::Runtime &runtime, std::int32_t utc_offset_minutes, std::uint32_t language = 1);
 
 } // namespace sims2::modules

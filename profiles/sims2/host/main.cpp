@@ -73,17 +73,28 @@ int main(int argc, char **argv) {
         if (!disc_id || !disc_boot) throw psprecomp::Error("Missing PSP disc identity or BOOT.BIN");
         const auto id_bytes = disc.read_file(*disc_id, 256u);
         const std::string id(id_bytes.begin(), id_bytes.end());
-        if (!id.starts_with("ULUS-10031|")) throw psprecomp::Error("Unsupported disc identity");
+        #if defined(SIMS2_EUROPE)
+        constexpr auto expected_disc = "ULES-00211|";
+        constexpr auto expected_boot = "0823aadf863790c82383e579f37147e3eb1c758ccf49492910091df29b4a9d25";
+#else
+        constexpr auto expected_disc = "ULUS-10031|";
+        constexpr auto expected_boot = "03ace15b9457016d48ebe2aa18fc757912641024f1e3a1f0abb92f8280a386b1";
+#endif
+        if (!id.starts_with(expected_disc)) throw psprecomp::Error("This runtime does not match the selected disc region");
         auto boot_bytes = disc.read_file(*disc_boot, 4u * 1024u * 1024u);
-        if (psprecomp::sha256_bytes(boot_bytes) !=
-            "03ace15b9457016d48ebe2aa18fc757912641024f1e3a1f0abb92f8280a386b1")
-            throw psprecomp::Error("Unsupported disc BOOT.BIN; expected ULUS-10031 USA");
+        if (psprecomp::sha256_bytes(boot_bytes) != expected_boot)
+            throw psprecomp::Error("Unsupported executable revision for this disc region");
         // Updates may retain the launcher's prepared flag while changing the
         // install layout. The verified ISO is authoritative, so a missing old
         // extraction must not prevent a prebuilt runtime from starting.
         if (std::filesystem::exists(argv[1])) {
-            if (psprecomp::sha256_file(argv[1]) != psprecomp::sha256_bytes(boot_bytes))
-                throw psprecomp::Error("Prepared BOOT.BIN differs from the supported disc executable");
+            const auto cached_boot = psprecomp::sha256_file(argv[1]);
+            if (cached_boot != expected_boot) {
+                if (cached_boot != "03ace15b9457016d48ebe2aa18fc757912641024f1e3a1f0abb92f8280a386b1" &&
+                    cached_boot != "0823aadf863790c82383e579f37147e3eb1c758ccf49492910091df29b4a9d25")
+                    throw psprecomp::Error("Prepared BOOT.BIN differs from the supported disc executable");
+                std::cerr << "[startup] Prepared copy belongs to the other supported region; using verified ISO\n";
+            }
         } else {
             std::cerr << "[startup] Prepared BOOT.BIN is absent; loading verified executable directly from ISO\n";
         }
@@ -100,6 +111,10 @@ int main(int argc, char **argv) {
         sims2::install_game_timing(*runtime);
         if (startup_settings.engine_fps)
             std::cerr << "[timing] Experimental engine rate " << startup_settings.engine_fps << " Hz\n";
+#endif
+        unsigned system_language = 1;
+#if defined(_WIN32) || defined(SIMS2_VULKAN)
+        system_language = startup_settings.system_language;
 #endif
         sims2::StartupHle startup;
         startup.install(*runtime);
@@ -124,7 +139,7 @@ int main(int argc, char **argv) {
         volatile_memory.install(*runtime);
         sims2::modules::UtilityModules utility_modules;
         sims2::modules::register_utility_modules(utility_modules, *runtime);
-        sims2::modules::register_system_parameters(*runtime, sims2::rtc::Rtc::host_utc_offset_seconds() / 60);
+        sims2::modules::register_system_parameters(*runtime, sims2::rtc::Rtc::host_utc_offset_seconds() / 60, system_language);
         sims2::utility::SavedataUtility savedata(sims2::utility::default_memory_stick(),
             [&startup] { return startup.compiled_sdk_version(); });
         sims2::utility::register_savedata(savedata, *runtime);

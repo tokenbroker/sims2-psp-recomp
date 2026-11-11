@@ -55,3 +55,17 @@ executable directly from the ISO if the prepared copy is absent. An existing
 prepared copy must still match the supported disc. No compilation or save
 migration is required. The same fallback covers a prebuilt install whose local
 extracted files were removed; the ISO must remain available.
+
+## v0.4.0 regional runtimes
+
+Windows now bundles USA and European D3D11/Vulkan runtimes. The frontend reads
+the ISO's actual disc ID to choose a regional executable; that executable checks
+its own exact BOOT hash. Europe has a separate AOT archive, settings file and
+PSP save identity. Optional prepared files from the other known supported region
+are ignored after the selected ISO has been verified. Unknown prepared files
+are still rejected.
+
+Package both regions with `--europe-d3d11` and `--europe-vulkan` in addition to
+the USA renderer folders. Each path must point at its matching regional build.
+Launcher configs/settings are separate and schema-checked. See
+[regional support](REGIONAL_SUPPORT.md) for language controls and validation.

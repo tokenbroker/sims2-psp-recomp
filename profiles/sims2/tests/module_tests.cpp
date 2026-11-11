@@ -46,5 +46,14 @@ int main() {
     cpu.gpr[4] = 0u;
     runtime.invoke_import("sceUtility", 0xA5DA2406u, cpu);
     require(cpu.gpr[2] == 0x80110103u, "unknown system parameter");
+    for (unsigned language = 1; language <= 5; ++language) {
+        psprecomp::Runtime regional;
+        register_system_parameters(regional, 0, language);
+        auto &context = regional.cpu();
+        context.gpr[4] = 8; context.gpr[5] = 0x08805000u;
+        regional.invoke_import("sceUtility", 0xA5DA2406u, context);
+        require(context.gpr[2] == 0 && regional.memory().load32(0x08805000u) == language,
+                "regional PSP language selection");
+    }
     return 0;
 }

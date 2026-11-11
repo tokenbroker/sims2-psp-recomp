@@ -5,10 +5,12 @@ game code in sims2_probe.exe and is not a redistributable game release.
 """
 from pathlib import Path
 import argparse
+import json
 import shutil
 import subprocess
 import sys
 from runtime_package import stage_companion
+from launcher_manifest import europe_language_setting
 
 profile = Path(__file__).resolve().parents[1]
 root = profile.parents[1]
@@ -25,6 +27,7 @@ parser.add_argument("--work-dir", type=Path, default=work,
                     help="PyInstaller build workspace")
 parser.add_argument("--vulkan-probe", type=Path, help="Optional Vulkan runtime to install alongside a D3D11 primary")
 parser.add_argument("--d3d11-probe", type=Path, help="Optional D3D11 runtime to install alongside a Vulkan primary")
+parser.add_argument("--region", choices=("USA", "EUROPE"), default="USA")
 args = parser.parse_args()
 probe = args.probe.resolve()
 output = args.output_dir.resolve()
@@ -50,7 +53,12 @@ for name in ("avcodec-61.dll", "avutil-59.dll", "SDL3.dll"):
 for backend, companion in (("vulkan", args.vulkan_probe), ("d3d11", args.d3d11_probe)):
     if companion:
         stage_companion(companion.resolve(), output, backend)
-shutil.copy2(profile / "launcher/recomplauncher.json", output / "recomplauncher.json")
+manifest = json.loads((profile / "launcher/recomplauncher.json").read_text())
+if args.region == "EUROPE":
+    manifest["config"][0]["file"] = [{"path": "{local}/Sims2PSPRecomp/settings-europe.ini"}]
+    manifest["config"][0]["new"].update({"host/system_language": "1", "host/engine_fps": "0"})
+    manifest["settings"].append(europe_language_setting("main"))
+(output / "recomplauncher.json").write_text(json.dumps(manifest, indent=2) + "\n")
 shutil.copy2(root / "LICENSE", output / "LICENSE.txt")
 shutil.copy2(profile / "THIRD_PARTY.md", output / "THIRD_PARTY.md")
 shutil.copytree(profile / "third_party", output / "third_party", dirs_exist_ok=True)

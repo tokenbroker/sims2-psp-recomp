@@ -28,7 +28,7 @@ From this extracted folder:
   out/packaging/Scripts/python.exe -m pip install PyInstaller==6.22.3
   python profiles/sims2/tools/build_from_iso.py "C:/path/to/The Sims 2 USA.iso" --package-python out/packaging/Scripts/python.exe
 
-Setup requires your USA ULUS-10031 ISO and checks its executable hash. The
+Setup requires your supported USA ULUS-10031 or Europe ULES-00211 ISO and checks its executable hash. The
 first optimized compile can take a long time. Logs and generated files stay
 under out/sims2-from-iso. Re-run the command to reuse completed compiler work.
 After success, import out/sims2-from-iso/install into RecompLauncher using
@@ -54,7 +54,7 @@ def source_files():
         "profiles/sims2/third_party/SDL3/LICENSE.txt",
     } | NATIVE_DEPENDENCIES
     for name in ("build_from_iso.py", "check_local_build.py", "prepare.py", "inspect_disc.py",
-                 "package_local.py", "package_playable.py", "package_sources.py", "runtime_package.py", "setup_process.py", "package_bootstrap.py", "fetch_dependencies.py", "build_linux.py", "embed_spirv.py", "benchmark.py", "doctor.py", "package_release.py", "coverage_report.py"):
+                 "package_local.py", "launcher_manifest.py", "package_playable.py", "package_sources.py", "runtime_package.py", "setup_process.py", "package_bootstrap.py", "fetch_dependencies.py", "build_linux.py", "embed_spirv.py", "benchmark.py", "doctor.py", "package_release.py", "coverage_report.py"):
         files.add("profiles/sims2/tools/" + name)
     for directory in ("include", "src", "tests", "profiles/sims2/host", "profiles/sims2/tests",
                       "profiles/sims2/third_party/SDL3/include",

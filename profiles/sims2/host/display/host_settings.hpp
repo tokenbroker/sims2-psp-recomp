@@ -29,6 +29,7 @@ struct HostSettings {
     bool vsync = true;
     unsigned stick_deadzone = 18;
     bool right_stick_camera = false;
+    unsigned system_language = 1; // PSP IDs: English=1, French=2, Spanish=3, German=4, Italian=5
     unsigned volume = 100;
     bool muted = false;
     bool show_performance = false;

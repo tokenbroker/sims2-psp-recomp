@@ -3,9 +3,10 @@
 
 namespace sims2::modules {
 
-void register_system_parameters(psprecomp::Runtime &runtime, std::int32_t utc_offset_minutes) {
+void register_system_parameters(psprecomp::Runtime &runtime, std::int32_t utc_offset_minutes, std::uint32_t language) {
+    if (language < 1 || language > 5) language = 1;
     runtime.register_hle("sceUtility", 0xA5DA2406u,
-        [utc_offset_minutes](psprecomp::Runtime &rt, psprecomp::AllegrexContext &cpu) {
+        [utc_offset_minutes, language](psprecomp::Runtime &rt, psprecomp::AllegrexContext &cpu) {
             const auto id = cpu.gpr[4], out = cpu.gpr[5];
             if (id < 2u || id > 9u || !rt.memory().contains(out, 4u)) {
                 cpu.set_gpr(2u, 0x80110103u); return;
@@ -13,7 +14,7 @@ void register_system_parameters(psprecomp::Runtime &runtime, std::int32_t utc_of
             // USA profile defaults: automatic ad-hoc channel, WLAN saving,
             // month/day/year, 12-hour clock, English, Cross to confirm.
             // UTC offset already includes host daylight saving, so do not add it twice.
-            const std::int32_t values[] = {0, 1, 1, 1, utc_offset_minutes, 0, 1, 1};
+            const std::int32_t values[] = {0, 1, 1, 1, utc_offset_minutes, 0, static_cast<std::int32_t>(language), 1};
             rt.memory().store32(out, static_cast<std::uint32_t>(values[id - 2u]));
             cpu.set_gpr(2u, 0u);
         });

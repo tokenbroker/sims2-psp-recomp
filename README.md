@@ -6,7 +6,7 @@
 
 **Return to Strangetown with modern display options, controller support and an in-game settings menu.**
 
-An unofficial native PC port of **The Sims 2 for PSP (USA, ULUS-10031)**,
+An unofficial native PC port of **The Sims 2 for PSP (USA ULUS-10031 and Europe ULES-00211)**,
 built by statically recompiling the game's Allegrex executable with
 [PSPRecomp](https://github.com/jessicanataliagta/PSPRecomp).
 
@@ -22,7 +22,7 @@ This repository contains the recompiler, host runtime, configuration and build
 tools. **The source tree contains no disc image, extracted game files, generated game
 sources, saves or playable executable.** Windows prebuilt release archives include
 compiled native game code, with no original disc files or assets. Supply your own
-legally acquired USA ISO.
+legally acquired supported USA or European ISO.
 
 Input rebinding and mouse controls: [INPUT.md](docs/INPUT.md).
 Benchmark methodology: [BENCHMARKS.md](docs/BENCHMARKS.md).
@@ -54,22 +54,22 @@ for the user-reported presentation issue.
 | Windows renderers | Direct3D 11; optional Vulkan in dual-backend builds |
 | Linux | Native Vulkan with Wayland/X11; physical Steam Deck validation pending |
 
-**Windows v0.3.2 removes local compilation from setup.** It includes prebuilt
-D3D11 and Vulkan runtimes. RecompLauncher verifies your ISO and prepares the
+**Windows v0.4.0 includes prebuilt USA and European runtimes for both D3D11 and
+Vulkan.** Select the supported ISO; the launcher chooses its region automatically. RecompLauncher verifies your ISO and prepares the
 required local files; it no longer generates or compiles hundreds of units on
 your machine. Disc verification and download time still apply.
 
 ## Download
 
-[Latest release: v0.3.2](https://github.com/tokenbroker/sims2-psp-recomp/releases/latest)
+[Latest release: v0.4.0](https://github.com/tokenbroker/sims2-psp-recomp/releases/latest)
 
 | Platform | Download | First setup |
 | --- | --- | --- |
-| Windows 10/11 x64 | [Prebuilt Windows ZIP](https://github.com/tokenbroker/sims2-psp-recomp/releases/download/v0.3.2/Sims2PSP-win64-setup-0.3.2.zip) | Verify your USA ISO; no compiler, CMake or Python installation |
-| Linux x64, Vulkan / Wayland / X11 | [Linux source installer](https://github.com/tokenbroker/sims2-psp-recomp/releases/download/v0.3.2/Sims2PSP-linux-x64-setup-0.3.2.tar.gz) | Compile locally using the documented dependencies |
+| Windows 10/11 x64 | [Prebuilt Windows ZIP](https://github.com/tokenbroker/sims2-psp-recomp/releases/download/v0.4.0/Sims2PSP-win64-setup-0.4.0.zip) | Verify your supported ISO; no compiler, CMake or Python installation |
+| Linux x64, Vulkan / Wayland / X11 | [Linux source installer](https://github.com/tokenbroker/sims2-psp-recomp/releases/download/v0.4.0/Sims2PSP-linux-x64-setup-0.4.0.tar.gz) | Compile locally using the documented dependencies |
 
 **Windows:** extract the whole ZIP, import its folder into RecompLauncher and
-select your supported USA ISO. Keep the ISO available during play. The Visual
+select your supported USA or European ISO. Keep the ISO available during play. The Visual
 C++ runtime and graphics driver must be installed; RecompLauncher checks runtime
 prerequisites. First setup reads the ISO and extracts only the required local
 files. Later Play starts the installed runtime directly. Settings and saves stay
@@ -81,6 +81,18 @@ the Windows no-compile setup experience. See [LINUX.md](docs/LINUX.md).
 Source builds remain available on both platforms. See [BUILD.md](docs/BUILD.md)
 and [prebuilt release packaging](docs/PREBUILT_RELEASES.md). Full display, audio
 and input settings remain in F1; common options are also exposed by RecompLauncher.
+
+## European languages
+
+**ULES-00211** supports English, French, German, Spanish and Italian. Choose
+**F1 > Display > Game language**, Save, then restart. The launcher page also has
+separate **Europe:** settings. EU preferences use `settings-europe.ini`; USA
+preferences and saves are preserved. The game uses its own regional save folder.
+
+EU uses **Native engine timing** for now; the USA experimental timing hook is
+not applied to different European code. Both regions retain display scaling,
+widescreen choices, controllers, audio settings and renderer switching.
+See [regional support and validation](docs/REGIONAL_SUPPORT.md).
 
 ## Build and run
 
@@ -102,7 +114,7 @@ a while; rerun the same command to reuse completed work.
 
 The prepared game is placed in **`out/sims2-from-iso/install`**. In RecompLauncher,
 use **Library > Bring Your Recomps > Pick a Folder > Not in the list: add it anyway**,
-choose that folder, and select the same USA ISO. Play starts the game without a
+choose that folder, and select the same supported ISO. Play starts the game without a
 console or diagnostic frame limit.
 
 See [Build instructions](docs/BUILD.md) for prerequisites, direct launch, tests
@@ -120,12 +132,12 @@ for the session, or Save to persist them. **F2** toggles the performance overlay
 - Fixed 1x-8x internal resolution or 50%-200% output-relative render scaling.
 - Anisotropic filtering, nearest/bilinear output filtering and VSync.
 - Presentation FPS cap, frame-time graph and performance statistics.
-- Experimental 120/240 Hz engine rates, with Native as the default (Save and restart).
+- Experimental 120/240 Hz engine rates for USA; Europe currently uses Native timing.
 - HDR controls, paper white and peak brightness, with SDR fallback.
 - Master volume/mute, controller deadzone and optional right-stick camera.
 
 **The presentation cap and engine rate are separate controls.** The latest source
-adds experimental 120/240 Hz engine modes with a game-specific timestep fix.
+includes experimental USA 120/240 Hz engine modes with a game-specific timestep fix.
 Choose **F1 > Display > Engine frame rate**, Save, then restart. Use a matching or
 unlimited presentation cap; VSync may limit output to the monitor's refresh rate.
 Native remains the default. These modes have bounded timing/movement checks,

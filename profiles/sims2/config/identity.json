@@ -5,5 +5,15 @@
   "boot_sha256": "03ace15b9457016d48ebe2aa18fc757912641024f1e3a1f0abb92f8280a386b1",
   "load_base": "0x08804000",
   "unit_span_bytes": 4096,
-  "framework_commit": "f6e7d415c7f447b934cc3865a31eb725f353d659"
+  "framework_commit": "f6e7d415c7f447b934cc3865a31eb725f353d659",
+  "variants": [
+    {
+      "title": "The Sims 2",
+      "disc_id": "ULES-00211",
+      "region": "Europe",
+      "boot_sha256": "0823aadf863790c82383e579f37147e3eb1c758ccf49492910091df29b4a9d25",
+      "load_base": "0x08804000",
+      "unit_span_bytes": 4096
+    }
+  ]
 }

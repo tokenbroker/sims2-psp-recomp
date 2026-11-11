@@ -113,3 +113,11 @@ at 2x. Existing controls, volume/mute, aspect and renderer choice are preserved.
 This gives integrated-GPU/handheld users a lower-load configuration to try. It
 has not been physically validated on the reported ROG Ally and is not a claim
 that its FPS/audio issue is resolved. Desktop defaults remain 1920x1080/4x.
+
+## European game language
+
+v0.4.0 supports the European ULES-00211 executable. Use **F1 > Display > Game
+language** (English/French/German/Spanish/Italian), Save and restart. This changes
+the game's language; the host F1 interface remains English. The launcher page
+exposes separate **Europe:** controls. EU preferences use `settings-europe.ini`;
+USA settings remain separate. EU engine timing is currently Native only.

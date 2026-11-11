@@ -8,6 +8,7 @@
 #include <vector>
 #include <cstdlib>
 #include "display/backend_selection.hpp"
+#include "display/disc_region.hpp"
 
 namespace {
 std::wstring quote(const std::wstring &value) {
@@ -40,7 +41,20 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR, int) {
 #else
     constexpr auto primary=GraphicsBackend::D3D11;
 #endif
-    const auto settings=sims2::display::load_host_settings(sims2::display::host_settings_path());
+    bool europe = false;
+    const bool check_disc = argc == 3 && std::wstring(argv[1]) == L"--check-disc";
+    if (argc == 3) {
+        try { europe = sims2::display::european_disc(argv[2]); }
+        catch (const std::exception &error) {
+            LocalFree(argv);
+            if (check_disc) return 2;
+            const std::string text = error.what();
+            return fail(std::wstring(text.begin(), text.end()));
+        }
+    }
+    auto settings_path = sims2::display::host_settings_path();
+    if (europe && !std::getenv("SIMS2_SETTINGS_PATH")) settings_path.replace_filename("settings-europe.ini");
+    const auto settings=sims2::display::load_host_settings(settings_path);
     auto selected=settings.graphics_backend;
     // Explicit shortcuts can recover a saved choice without opening the game.
     if(const auto *choice=std::getenv("SIMS2_GRAPHICS_BACKEND")) {
@@ -51,14 +65,17 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR, int) {
         else {LocalFree(argv);return fail(L"Unknown graphics backend; use auto, d3d11 or vulkan.");}
     }
 #if defined(SIMS2_RUNTIME_SUBDIR)
-    const auto runtime_folder=folder/SIMS2_RUNTIME_SUBDIR;
+    auto runtime_folder=folder/SIMS2_RUNTIME_SUBDIR;
 #else
-    const auto runtime_folder=folder;
+    auto runtime_folder=folder;
+#endif
+#if !defined(SIMS2_EUROPE) && !defined(SIMS2_RUNTIME_SUBDIR)
+    if (europe) runtime_folder /= "europe";
 #endif
     const auto backend=sims2::display::selected_runtime(runtime_folder,selected,primary);
     std::error_code backend_error;
     const auto prepared = std::filesystem::is_regular_file(backend, backend_error);
-    if (argc == 2 && std::wstring(argv[1]) == L"--check") {
+    if ((argc == 2 && std::wstring(argv[1]) == L"--check") || check_disc) {
         LocalFree(argv);
         if (!prepared) return 1;
         for (const auto name : {L"SDL3.dll", L"avcodec-61.dll", L"avutil-59.dll"})
@@ -67,11 +84,11 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR, int) {
     }
     if (argc != 3) {
         LocalFree(argv);
-        return fail(L"Start The Sims 2 PSP from RecompLauncher and select your USA ULUS-10031 ISO during setup.");
+        return fail(L"Start The Sims 2 PSP from RecompLauncher and select your supported USA ULUS-10031 or Europe ULES-00211 ISO.");
     }
     if (!prepared) {
         LocalFree(argv);
-        return fail(L"The selected graphics runtime is not installed.\n\nInstall both backends with setup --graphics BOTH, or use the Direct3D 11/Vulkan shortcut for an installed runtime.");
+        return fail(L"The selected graphics runtime is not installed.\n\nInstall a release containing both renderers for your disc region, or select an installed renderer.");
     }
     std::wstring command = quote(backend.wstring()) + L" " + quote(argv[1]) + L" " + quote(argv[2])
         + L" --max-dispatches unlimited";

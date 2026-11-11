@@ -164,3 +164,11 @@ python3 profiles/sims2/tests/run_wayland_tests.py out/host-tests
 The helper creates its own socket, runtime directory and settings file and stops
 only its own compositor. This uses software/headless display infrastructure;
 physical GPU drivers, Gamescope and Steam Deck suspend/resume still need testing.
+
+## European source builds
+
+v0.4.0 accepts the verified European ULES-00211 ISO as well as USA ULUS-10031.
+The source setup selects a separate regional corpus; use independent workspaces
+when retaining builds for both. EU supports five game languages through F1,
+with Native engine timing only, and uses `settings-europe.ini`. Windows regional
+game checks do not certify an EU Linux playthrough or physical Steam Deck run.

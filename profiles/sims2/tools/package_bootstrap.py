@@ -8,6 +8,7 @@ import shutil
 import subprocess
 import sys
 import zipfile
+from launcher_manifest import add_europe_settings
 
 
 PROFILE = Path(__file__).resolve().parents[1]
@@ -74,14 +75,15 @@ def main():
                     "--parallel", "2", "--", "/nodeReuse:false"], check=True)
     put("sims2_launcher.exe", (native / "Release/sims2_launcher.exe").read_bytes())
     launcher = json.loads((PROFILE / "launcher/recomplauncher.json").read_text())
-    launcher["game"]["label"] = "USA ULUS-10031 ISO. First setup requires CMake and Visual Studio 2022 C++ tools."
+    launcher["game"]["label"] = "USA ULUS-10031 or Europe ULES-00211 ISO. First setup requires CMake and Visual Studio 2022 C++ tools."
     launcher["start"]["program"] = ["sims2_launcher.exe"]
     launcher["start"]["args"] = ["{install}/work/install/game/PSP_GAME/SYSDIR/BOOT.BIN", "{game}"]
     launcher["prepare"] = {"program": ["sims2_setup.exe"],
                            "args": ["{game}", "--workspace", "{install}/work"],
-                           "label": "Build and verify from your USA disc (first setup can take a while)",
+                           "label": "Build and verify from your supported disc (first setup can take a while)",
                            "timeout": 7200}
     launcher["exit_codes"]["1"] = "Setup or runtime failed. Setup details: work/setup.log or setup-error.log. Game details: %LOCALAPPDATA%/Sims2PSPRecomp/logs/latest.log."
+    add_europe_settings(launcher)
     put("recomplauncher.json", (json.dumps(launcher, indent=2) + "\n").encode())
     put("LICENSE.txt", (ROOT / "LICENSE").read_bytes())
     put("notices/Python-LICENSE.txt", (Path(sys.base_prefix) / "LICENSE.txt").read_bytes())
@@ -89,8 +91,8 @@ def main():
     license_path = next(path for path in distribution.files if str(path).endswith("licenses/COPYING.txt"))
     put("notices/PyInstaller-COPYING.txt", Path(distribution.locate_file(license_path)).read_bytes())
     put("README.txt", (
-        "THE SIMS 2 PSP — v0.2.5 SOURCE INSTALLER PREVIEW\n"
-        "Import this folder into RecompLauncher and select your USA ULUS-10031 ISO.\n"
+        "THE SIMS 2 PSP — v0.4.0 SOURCE INSTALLER PREVIEW\n"
+        "Import this folder into RecompLauncher and select your supported USA ULUS-10031 or Europe ULES-00211 ISO.\n"
         "Setup bundles Python. CMake 3.21+ and Visual Studio 2022 C++/Windows SDK must be installed.\n"
         "The first optimized build can take a long time; progress is retained in work/setup.log.\n"
         "Early validation errors are retained in setup-error.log beside this executable.\n"

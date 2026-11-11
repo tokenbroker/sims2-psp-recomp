@@ -4,7 +4,7 @@
   "name": "The Sims 2 PSP",
   "game": {
     "kind": "iso",
-    "label": "Your USA The Sims 2 PSP ISO (ULUS-10031). Development build; later gameplay remains unverified.",
+    "label": "Your matching USA ULUS-10031 or Europe ULES-00211 The Sims 2 PSP ISO.",
     "check": {
       "iso9660": "UMD_DATA.BIN"
     }
@@ -31,7 +31,7 @@
       "--output-dir",
       "{install}/game"
     ],
-    "label": "Validate your USA disc and prepare the game",
+    "label": "Validate your supported disc and prepare the game",
     "timeout": 120
   },
   "saves": [

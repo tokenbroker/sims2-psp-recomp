@@ -72,7 +72,7 @@ int main(int argc, char **argv) {
         const auto path = std::filesystem::temp_directory_path() / "sims2-input-roundtrip.ini";
         std::string error;
         require(sims2::display::save_host_settings(path, settings, error), "Input settings save");
-        require(sims2::display::load_host_settings(path) == settings, "Input settings roundtrip");
+        require(sims2::display::load_host_settings(path) == sims2::display::validated_settings(settings), "Input settings roundtrip");
         std::filesystem::remove(path);
         using sims2::display::GraphicsBackend;
         using sims2::display::selected_runtime;

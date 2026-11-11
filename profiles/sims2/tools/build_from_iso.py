@@ -1,4 +1,4 @@
-"""Generate, compile and prepare a local RecompLauncher folder from a USA ISO.
+"""Generate, compile and prepare a local RecompLauncher folder from a supported USA or European ISO.
 
 Requires Windows, CMake and Visual Studio 2022 C++/Windows SDK. Source-mode
 packaging uses Python/PyInstaller; the frozen launcher bootstrap bundles Python
@@ -143,7 +143,7 @@ def main():
         embed(*sys.argv[2:])
         return
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--version", action="version", version="sims2-source-setup 0.2.5")
+    parser.add_argument("--version", action="version", version="sims2-source-setup 0.4.0")
     parser.add_argument("iso", type=Path)
     parser.add_argument("--workspace", type=Path, default=ROOT / "out/sims2-from-iso")
     parser.add_argument("--jobs", type=int, default=4, help="Parallel build projects (1..16)")
@@ -172,7 +172,7 @@ def main():
         parser.error("Choose a separate build workspace, not the existing launcher folder")
     iso = args.iso.resolve()
     # Reject unsupported/truncated discs before creating a build directory.
-    report_progress(0, "Checking your USA disc")
+    report_progress(0, "Checking your supported disc")
     identity = prepare(iso, False, verify_only=True)
     report_progress(0.03, "Disc verified; checking build tools")
     if os.name != "nt":
@@ -255,7 +255,7 @@ def main():
             run([cmake, "-S", ROOT, "-B", backend_build, "-G", "Visual Studio 17 2022", "-A", "x64",
                  "-DPSPRECOMP_PROFILE=sims2", "-DSIMS2_HOST_TESTS_ONLY=OFF", "-DSIMS2_TIMING_RESEARCH=OFF", "-DPSPRECOMP_BUILD_TESTS=OFF",
                  "-DPSPRECOMP_BUILD_PROFILE_TESTS=OFF", "-DPSPRECOMP_MSVC_MP_JOBS=1",
-                 "-DSIMS2_OPTIMIZE_AOT=ON", f"-DSIMS2_GRAPHICS_BACKEND={backend}", f"-DSIMS2_GENERATED_DIR={generated}", *options], log)
+                 "-DSIMS2_OPTIMIZE_AOT=ON", f"-DSIMS2_REGION={'EUROPE' if identity['disc_id']=='ULES-00211' else 'USA'}", f"-DSIMS2_GRAPHICS_BACKEND={backend}", f"-DSIMS2_GENERATED_DIR={generated}", *options], log)
             start=0.25+0.64*index/len(graphics)
             report_progress(start, f"Building {backend} host; reusing compiled game code" if index else
                             f"Compiling game code for {backend}; this is needed only during setup")
@@ -275,6 +275,7 @@ def main():
             prepare(iso, False, install / "game", report_dir=workspace / "analysis")
         else:
             run([package_python, PROFILE / "tools/package_local.py", "--probe", probe,
+                 "--region", "EUROPE" if identity["disc_id"]=="ULES-00211" else "USA",
                  "--output-dir", install, "--work-dir", workspace / "packaging"], log)
             run([install / "sims2_setup.exe", iso, "--output-dir", install / "game"], log)
         if args.graphics == "BOTH":

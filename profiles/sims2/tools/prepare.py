@@ -84,8 +84,10 @@ def prepare(iso, assets, output_dir=None, verify_only=False, report_dir=None):
             return read_at(stream, extent * SECTOR, size)
 
         disc_id = get("/UMD_DATA.BIN").split(b"|", 1)[0].decode("ascii")
-        if disc_id != identity["disc_id"]:
-            raise ValueError(f"Unsupported disc {disc_id}; expected {identity['disc_id']}")
+        identities = [identity, *identity.get("variants", [])]
+        identity = next((item for item in identities if item["disc_id"] == disc_id), None)
+        if identity is None:
+            raise ValueError(f"Unsupported disc {disc_id}; expected " + ", ".join(item["disc_id"] for item in identities))
         boot = get("/PSP_GAME/SYSDIR/BOOT.BIN")
         digest = hashlib.sha256(boot).hexdigest()
         if digest != identity["boot_sha256"] or boot[:4] != b"\x7fELF":
@@ -120,7 +122,7 @@ def prepare(iso, assets, output_dir=None, verify_only=False, report_dir=None):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--version", action="version", version="sims2-setup 0.3.2")
+    parser.add_argument("--version", action="version", version="sims2-setup 0.4.0")
     parser.add_argument("iso", type=Path)
     parser.add_argument("--output-dir", type=Path, default=DEFAULT_GAME,
                         help="Directory receiving PSP_GAME and UMD_DATA.BIN")
@@ -139,7 +141,7 @@ def main():
     if args.verify_only and (args.analyze or args.generate or args.assets):
         parser.error("--verify-only cannot be combined with --assets, --analyze or --generate")
     if FROZEN:
-        print("progress 0.05 Verifying your USA disc; no compilation needed", flush=True)
+        print("progress 0.05 Verifying your supported disc; no compilation needed", flush=True)
     identity = prepare(args.iso, args.assets, args.output_dir, args.verify_only, args.report_dir)
     print(f"Verified {identity['disc_id']}: {identity['boot_sha256']}", flush=True)
     boot = args.output_dir / "PSP_GAME/SYSDIR/BOOT.BIN"

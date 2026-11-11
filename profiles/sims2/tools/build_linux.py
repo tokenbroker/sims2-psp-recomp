@@ -1,4 +1,4 @@
-"""Build a native Linux Vulkan runtime from your own supported USA ISO."""
+"""Build a native Linux Vulkan runtime from your own supported USA or European ISO."""
 import argparse
 import fcntl
 import json
@@ -7,6 +7,7 @@ from pathlib import Path
 import shutil
 import subprocess
 from prepare import prepare
+from launcher_manifest import europe_language_setting
 from check_local_build import check_local_build
 from doctor import check as check_prerequisites
 
@@ -42,7 +43,7 @@ def main():
         prepare(iso,False,game,report_dir=workspace/"analysis")
         run(framework/"psp_recomp",game/"PSP_GAME/SYSDIR/BOOT.BIN","--auto",generated,identity["load_base"],identity["unit_span_bytes"])
         if args.generate_only:return
-        run("cmake","-S",ROOT,"-B",build,"-G","Ninja","-DCMAKE_BUILD_TYPE=Release","-DPSPRECOMP_PROFILE=sims2", "-DSIMS2_HOST_TESTS_ONLY=OFF", "-DSIMS2_TIMING_RESEARCH=OFF","-DPSPRECOMP_BUILD_TESTS=OFF","-DPSPRECOMP_BUILD_PROFILE_TESTS=OFF","-DSIMS2_GRAPHICS_BACKEND=VULKAN",f"-DSIMS2_GENERATED_DIR={generated}")
+        run("cmake","-S",ROOT,"-B",build,"-G","Ninja","-DCMAKE_BUILD_TYPE=Release","-DPSPRECOMP_PROFILE=sims2", "-DSIMS2_HOST_TESTS_ONLY=OFF", "-DSIMS2_TIMING_RESEARCH=OFF","-DPSPRECOMP_BUILD_TESTS=OFF","-DPSPRECOMP_BUILD_PROFILE_TESTS=OFF","-DSIMS2_GRAPHICS_BACKEND=VULKAN",f"-DSIMS2_REGION={'EUROPE' if identity['disc_id']=='ULES-00211' else 'USA'}",f"-DSIMS2_GENERATED_DIR={generated}")
         run("cmake","--build",build,"--target","sims2","--parallel",args.jobs)
         stage_install(iso,workspace,build,install,identity)
         check_local_build(iso,install,workspace/"validation")
@@ -51,11 +52,12 @@ def stage_install(iso,workspace,build,install,identity):
     run("cmake","--install",build,"--prefix",install,"--component","sims2")
     prepare(iso,False,install/"game",report_dir=workspace/"analysis")
     manifest=json.loads((PROFILE/"launcher/recomplauncher.json").read_text())
-    manifest["config"][0]["file"]=[{"path":"{config}/Sims2PSPRecomp/settings.ini"}]
+    manifest["config"][0]["file"]=[{"path":"{config}/Sims2PSPRecomp/"+("settings-europe.ini" if identity["disc_id"]=="ULES-00211" else "settings.ini")}]
+    if identity["disc_id"]=="ULES-00211": manifest["settings"].append(europe_language_setting("main"))
     manifest.pop("prepare",None)
     manifest["start"]["program"]=["sims2"]
     manifest["start"]["env"]={"SIMS2_WINDOW":"1"}
-    manifest["game"]["label"]="Your USA The Sims 2 PSP ISO (ULUS-10031), native Linux Vulkan preview."
+    manifest["game"]["label"]=f"Your supported The Sims 2 PSP ISO ({identity['disc_id']}), native Linux Vulkan preview."
     manifest["saves"]=["{local}/Sims2PSPRecomp/memstick/PSP/SAVEDATA"]
     # {local} is launcher-managed on every platform; direct launch uses XDG.
     manifest["start"]["env"]["SIMS2_MEMSTICK"]="{local}/Sims2PSPRecomp/memstick"

@@ -39,6 +39,12 @@ float effective_render_scale(const HostSettings &settings,unsigned output_height
     return settings.render_percent?std::clamp(float(output_height)*settings.render_percent/(100*272),0.5f,16.0f):float(settings.render_scale);
 }
 HostSettings validated_settings(HostSettings settings) {
+    if (settings.system_language < 1 || settings.system_language > 5) settings.system_language = 1;
+#if defined(SIMS2_EUROPE)
+    settings.engine_fps = 0; // EU timing hook is not yet validated.
+#else
+    settings.system_language = 1; // Preserve the USA profile's English-only behavior.
+#endif
     if(unsigned(settings.graphics_backend)>unsigned(GraphicsBackend::Vulkan))settings.graphics_backend=GraphicsBackend::Default;
     settings.input=ctrl::validated_input(settings.input);
     if(!settings.width || !settings.height)settings.width=settings.height=0;
@@ -68,6 +74,11 @@ PictureRect picture_rect(unsigned width, unsigned height, AspectMode mode) {
     return {(width - w) / 2, (height - h) / 2, w, h};
 }
 std::filesystem::path host_settings_path() {
+#if defined(SIMS2_EUROPE)
+    constexpr auto relative = "Sims2PSPRecomp/settings-europe.ini";
+#else
+    constexpr auto relative = "Sims2PSPRecomp/settings.ini";
+#endif
     if (const auto *override_path = std::getenv("SIMS2_SETTINGS_PATH")) return override_path;
 #if defined(_WIN32)
     const auto count = GetEnvironmentVariableW(L"LOCALAPPDATA", nullptr, 0);
@@ -76,14 +87,14 @@ std::filesystem::path host_settings_path() {
         const auto read = GetEnvironmentVariableW(L"LOCALAPPDATA", folder.data(), count);
         if (read && read < count) {
             folder.resize(read);
-            return std::filesystem::path(folder) / "Sims2PSPRecomp/settings.ini";
+            return std::filesystem::path(folder) / relative;
         }
     }
 #else
-    if (const auto *config = std::getenv("XDG_CONFIG_HOME"); config && std::filesystem::path(config).is_absolute()) return std::filesystem::path(config) / "Sims2PSPRecomp/settings.ini";
-    if (const auto *home = std::getenv("HOME")) return std::filesystem::path(home) / ".config/Sims2PSPRecomp/settings.ini";
+    if (const auto *config = std::getenv("XDG_CONFIG_HOME"); config && std::filesystem::path(config).is_absolute()) return std::filesystem::path(config) / relative;
+    if (const auto *home = std::getenv("HOME")) return std::filesystem::path(home) / ".config" / relative;
 #endif
-    return std::filesystem::temp_directory_path() / "Sims2PSPRecomp/settings.ini";
+    return std::filesystem::temp_directory_path() / relative;
 }
 HostSettings load_host_settings(const std::filesystem::path &path) {
     HostSettings result;
@@ -100,6 +111,7 @@ HostSettings load_host_settings(const std::filesystem::path &path) {
                 if(key.starts_with("pad_")&&index<result.input.gamepad.size())number(value,result.input.gamepad[index]);
             }
         }
+        else if(key=="system_language")number(value,result.system_language);
         else if(key=="controller_labels")number(value,result.input.controller_labels);
         else if(key=="camera_threshold")number(value,result.input.camera_threshold);
         else if(key=="mouse_sensitivity")number(value,result.input.mouse_sensitivity);
@@ -153,6 +165,7 @@ bool save_host_settings(const std::filesystem::path &path, HostSettings settings
         if (!path.parent_path().empty()) std::filesystem::create_directories(path.parent_path());
         std::ofstream output(temporary, std::ios::binary | std::ios::trunc);
         output << "[host]\nwindow_mode=" << (settings.mode==WindowMode::Windowed?"windowed":settings.mode==WindowMode::Fullscreen?"fullscreen":"borderless")
+               << "\nsystem_language=" << settings.system_language
                << "\nrender_scale=" << settings.render_scale
                << "\nwidth=" << settings.width << "\nheight=" << settings.height
                << "\naspect=" << aspect_name(settings.aspect)
