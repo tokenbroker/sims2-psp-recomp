@@ -250,8 +250,10 @@ int main(int argc, char **argv) {
             playback = std::make_unique<sims2::audio::NativeAudio>();
             if(window)window->set_audio_control([&](float gain){playback->set_gain(gain);});
             audio.set_sink([&](auto channel, auto samples, auto mono, auto left, auto right) {
-                if (window) window->synchronize(kernel.now_us());
+                // Queue the ready block before sleeping on the guest clock.
+                // Sleeping first can drain the last block while this one waits.
                 playback->play(channel, samples, mono, left, right);
+                if (window) window->synchronize(kernel.now_us());
             });
         }
         std::ofstream frame_csv;

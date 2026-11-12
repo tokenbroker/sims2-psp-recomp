@@ -19,7 +19,7 @@ RUNTIME = ("sims2_probe.exe", "SDL3.dll", "avcodec-61.dll", "avutil-59.dll")
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--version", default="0.4.1")
+    parser.add_argument("--version", default="0.4.2")
     parser.add_argument("--d3d11", type=Path, required=True)
     parser.add_argument("--vulkan", type=Path, required=True)
     parser.add_argument("--europe-d3d11", type=Path)

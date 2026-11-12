@@ -87,7 +87,10 @@ void NativeAudio::play(std::int32_t index, std::span<const std::int16_t> samples
     }
     // The guest can advance while loading without presenting a framebuffer.
     // Apply playback backpressure instead of discarding sound when it runs ahead.
-    if (queued > 44100 * 4 / 10) {
+    // Leave 200 ms of headroom for guest block bursts and device scheduling;
+    // a tight 100 ms cap stalled all guest threads while other channels drained.
+    constexpr auto queue_limit_bytes = 44100 * 4 / 5;
+    if (queued > queue_limit_bytes) {
         ++impl_->waits;
         const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(3);
         do {
@@ -95,7 +98,7 @@ void NativeAudio::play(std::int32_t index, std::span<const std::int16_t> samples
             queued = SDL_GetAudioStreamQueued(stream);
             if (queued < 0 || std::chrono::steady_clock::now() >= deadline)
                 throw psprecomp::Error("Audio playback device stopped draining its queue");
-        } while (queued > 44100 * 4 / 10);
+        } while (queued > queue_limit_bytes);
     }
     if (!SDL_PutAudioStreamData(stream, output.data(), static_cast<int>(output.size() * sizeof(std::int16_t))))
         throw psprecomp::Error(std::string("Cannot queue audio: ") + SDL_GetError());

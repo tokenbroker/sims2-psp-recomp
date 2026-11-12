@@ -91,7 +91,7 @@ def main():
     license_path = next(path for path in distribution.files if str(path).endswith("licenses/COPYING.txt"))
     put("notices/PyInstaller-COPYING.txt", Path(distribution.locate_file(license_path)).read_bytes())
     put("README.txt", (
-        "THE SIMS 2 PSP — v0.4.1 SOURCE INSTALLER PREVIEW\n"
+        "THE SIMS 2 PSP — v0.4.2 SOURCE INSTALLER PREVIEW\n"
         "Import this folder into RecompLauncher and select your supported USA ULUS-10031 or Europe ULES-00211 ISO.\n"
         "Setup bundles Python. CMake 3.21+ and Visual Studio 2022 C++/Windows SDK must be installed.\n"
         "The first optimized build can take a long time; progress is retained in work/setup.log.\n"

@@ -54,19 +54,19 @@ for the user-reported presentation issue.
 | Windows renderers | Direct3D 11; optional Vulkan in dual-backend builds |
 | Linux | Native Vulkan with Wayland/X11; physical Steam Deck validation pending |
 
-**Windows v0.4.1 includes prebuilt USA and European runtimes for both D3D11 and
+**Windows v0.4.2 includes prebuilt USA and European runtimes for both D3D11 and
 Vulkan.** Select the supported ISO; the launcher chooses its region automatically. RecompLauncher verifies your ISO and prepares the
 required local files; it no longer generates or compiles hundreds of units on
 your machine. Disc verification and download time still apply.
 
 ## Download
 
-[Latest release: v0.4.1](https://github.com/tokenbroker/sims2-psp-recomp/releases/latest)
+[Latest release: v0.4.2](https://github.com/tokenbroker/sims2-psp-recomp/releases/latest)
 
 | Platform | Download | First setup |
 | --- | --- | --- |
-| Windows 10/11 x64 | [Prebuilt Windows ZIP](https://github.com/tokenbroker/sims2-psp-recomp/releases/download/v0.4.1/Sims2PSP-win64-setup-0.4.1.zip) | Verify your supported ISO; no compiler, CMake or Python installation |
-| Linux x64, Vulkan / Wayland / X11 | [Linux source installer](https://github.com/tokenbroker/sims2-psp-recomp/releases/download/v0.4.1/Sims2PSP-linux-x64-setup-0.4.1.tar.gz) | Compile locally using the documented dependencies |
+| Windows 10/11 x64 | [Prebuilt Windows ZIP](https://github.com/tokenbroker/sims2-psp-recomp/releases/download/v0.4.2/Sims2PSP-win64-setup-0.4.2.zip) | Verify your supported ISO; no compiler, CMake or Python installation |
+| Linux x64, Vulkan / Wayland / X11 | [Linux source installer](https://github.com/tokenbroker/sims2-psp-recomp/releases/download/v0.4.2/Sims2PSP-linux-x64-setup-0.4.2.tar.gz) | Compile locally using the documented dependencies |
 
 **Windows:** extract the whole ZIP, import its folder into RecompLauncher and
 select your supported USA or European ISO. Keep the ISO available during play. The Visual

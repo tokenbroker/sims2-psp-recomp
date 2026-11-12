@@ -243,3 +243,23 @@ Shorter serial runs check loading and gameplay without that concurrent workload.
 playthrough, audible audio validation, sustained physical-monitor FPS or physical
 Steam Deck validation. Regional language content, save IDs and settings paths
 remain intentionally distinct.
+
+
+## v0.4.2 opening-story audio scheduling
+
+The supplied review video identifies the opening desert-driving story sequence.
+The runtime now queues ready PCM before guest-clock sleeping and allows 200 ms
+of per-channel queue headroom before loading backpressure. This preserves guest
+samples and avoids repeatedly inserting recovery silence. The larger permitted
+queue can add buffering latency; it is not an unlimited queue.
+
+Matched private fixture runs reached the same scene and guest sample counts.
+Headless and normal hidden-window diagnostics showed reduced blocking/queue
+starvation on the main continuous channel, with remaining mixed channel results.
+The normal window test exercised the selected 4x scale; early headless runs did
+not apply that F1 setting. Windows native audio tests and 49 Linux host tests
+passed. See [audio validation and limits](AUDIO_REPORTS.md).
+
+This is a scheduling mitigation. Physical-device audible reproduction and the
+reviewer's retest are still required; the audio issue remains open. It does not
+claim to fix the separate reported native access violation.
