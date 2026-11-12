@@ -263,3 +263,17 @@ passed. See [audio validation and limits](AUDIO_REPORTS.md).
 This is a scheduling mitigation. Physical-device audible reproduction and the
 reviewer's retest are still required; the audio issue remains open. It does not
 claim to fix the separate reported native access violation.
+
+
+## v0.4.3 Vulkan point-list compatibility and fatal-error reports
+
+A new point-list rendering test exposed a missing required `gl_PointSize` output
+in the Vulkan vertex shader (VUID topology-08773). The corrected shader passed
+point rasterization and Vulkan validation. Linux CI now requires clean validation
+when the dedicated option is enabled. Windows native faults now leave a small,
+module-relative crash report rather than only the last ordinary gameplay log.
+Vulkan startup logs SDL and graphics-driver versions.
+
+The reported save-to-Sim crash was not reproduced on the local RX 6950 XT;
+normal off-screen swapchain runs reached gameplay before and after correction.
+The Radeon 890M report remains open. See [validation and limits](VULKAN_CRASHES.md).

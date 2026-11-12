@@ -15,6 +15,22 @@ int main(int argc,char **argv) {
     try {
         using namespace sims2::gpu;
         const auto require = [](bool ok, const char *why) { if (!ok) throw std::runtime_error(why); };
+#if defined(SIMS2_VULKAN)
+        if (scale == 1) {
+            // Point-list pipelines require the vertex shader to write PointSize.
+            // Check a real rasterized point, not just pipeline creation.
+            psprecomp::GuestMemory point_memory;
+            NativeRenderer point_renderer;
+            DrawCall point{}; point.through = true; point.has_vertex_color = true;
+            point.primitive = PrimitiveType::Points;
+            point.target = {0x04000000u, 512u, 3u, 0x04180000u, 512u};
+            point.vertices.resize(1); point.vertices[0].position = {100.5f, 100.5f, 100, 1};
+            point.vertices[0].color = 0xff0000ffu;
+            point_renderer.draw(point_memory, point); point_renderer.flush(point_memory);
+            require(point_memory.load32(0x04000000u + (100u * 512u + 100u) * 4u) == 0xff0000ffu,
+                    "Vulkan point did not rasterize at its guest position");
+        }
+#endif
         psprecomp::GuestMemory memory;
         NativeRenderer renderer(true); renderer.set_render_scale(scale);
         DrawCall call{}; call.through = true; call.has_vertex_color = true;

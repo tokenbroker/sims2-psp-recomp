@@ -9,7 +9,7 @@ import io
 from launcher_manifest import add_europe_settings
 ROOT=Path(__file__).resolve().parents[3]
 def main():
-    p=argparse.ArgumentParser(description=__doc__);p.add_argument("--version",default="0.4.2");p.add_argument("--output",type=Path,default=ROOT/"out/releases");args=p.parse_args()
+    p=argparse.ArgumentParser(description=__doc__);p.add_argument("--version",default="0.4.3");p.add_argument("--output",type=Path,default=ROOT/"out/releases");args=p.parse_args()
     subprocess.run(["python" if __import__("os").name=="nt" else "python3",str(ROOT/"tools/check_public_tree.py")],check=True)
     args.output.mkdir(parents=True,exist_ok=True)
     names=[n for n in subprocess.check_output(["git","ls-files","-z"],cwd=ROOT).decode().split("\0") if n]

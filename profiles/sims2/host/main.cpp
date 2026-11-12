@@ -1,3 +1,4 @@
+#include "platform/native_crash.hpp"
 #include "psprecomp/common.hpp"
 #include "psprecomp/elf32.hpp"
 #include "psprecomp/runtime.hpp"
@@ -43,6 +44,7 @@
 namespace psprecomp { void register_generated_functions(Runtime &); }
 
 int main(int argc, char **argv) {
+    sims2::platform::install_native_crash_logging();
     if (argc != 3 && argc != 5) {
         std::cerr << "Usage: sims2_probe <BOOT.BIN> <USA.iso> [--max-dispatches N|unlimited]\n"
                      "Development build; native graphics/audio and incomplete gameplay validation.\n";

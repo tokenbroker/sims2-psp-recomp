@@ -419,7 +419,13 @@ struct NativeRenderer::Impl {
 };
 NativeRenderer::NativeRenderer(bool) : impl_(std::make_unique<Impl>()) {
     auto &r = *impl_;
-    SDL_SetAppMetadata("The Sims 2 PSP Recomp", "0.2.4", "io.github.sims2psprecomp");
+    SDL_SetAppMetadata("The Sims 2 PSP Recomp", "0.4.3", "io.github.sims2psprecomp");
+    if (std::getenv("SIMS2_GPU_DEBUG")) {
+        SDL_SetLogOutputFunction(+[](void *, int, SDL_LogPriority, const char *message) {
+            std::cerr << "[sdl-gpu] " << message << '\n';
+        }, nullptr);
+        SDL_SetLogPriority(SDL_LOG_CATEGORY_GPU, SDL_LOG_PRIORITY_VERBOSE);
+    }
     require(SDL_InitSubSystem(SDL_INIT_VIDEO), "Initialize SDL Vulkan video");
     r.video = true;
     r.device =
@@ -452,6 +458,12 @@ NativeRenderer::NativeRenderer(bool) : impl_(std::make_unique<Impl>()) {
     r.upload_texture(r.white, &white, 1, 1);
     r.submit();
     std::cerr << "[graphics] Vulkan (SDL GPU) adapter: " << SDL_GetStringProperty(SDL_GetGPUDeviceProperties(r.device),SDL_PROP_GPU_DEVICE_NAME_STRING,"unknown") << "\n";
+    const auto properties = SDL_GetGPUDeviceProperties(r.device);
+    std::cerr << "[graphics] SDL " << SDL_GetVersion()
+        << " Vulkan driver: " << SDL_GetStringProperty(properties, SDL_PROP_GPU_DEVICE_DRIVER_NAME_STRING, "unknown")
+        << " version: " << SDL_GetStringProperty(properties, SDL_PROP_GPU_DEVICE_DRIVER_VERSION_STRING, "unknown")
+        << " info: " << SDL_GetStringProperty(properties, SDL_PROP_GPU_DEVICE_DRIVER_INFO_STRING, "unknown") << '\n';
+
 }
 NativeRenderer::~NativeRenderer() {
     if(std::getenv("SIMS2_PROFILE"))std::cerr<<"[vulkan] cached_targets="<<impl_->targets.size()

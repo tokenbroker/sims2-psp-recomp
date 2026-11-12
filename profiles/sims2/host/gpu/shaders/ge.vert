@@ -6,4 +6,4 @@ layout(location=3) in vec4 extra;
 layout(location=0) out vec3 uv;
 layout(location=1) out vec4 shade;
 layout(location=2) out vec4 secondary;
-void main(){gl_Position=position;uv=texcoord;shade=color;secondary=extra;}
+void main(){gl_Position=position;gl_PointSize=1.0;uv=texcoord;shade=color;secondary=extra;}

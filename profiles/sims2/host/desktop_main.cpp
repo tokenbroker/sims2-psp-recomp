@@ -147,8 +147,14 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR, int) {
     WaitForSingleObject(process.hProcess, INFINITE);
     DWORD code = 1; GetExitCodeProcess(process.hProcess, &code); CloseHandle(process.hProcess);
     CloseHandle(job);
+    {
+        std::ofstream report(log_path, std::ios::app);
+        const auto active = selected == GraphicsBackend::Default ? primary : selected;
+        report << "[launcher] renderer=" << (active == GraphicsBackend::Vulkan ? "Vulkan" : "D3D11")
+            << " region=" << (europe ? "EUROPE" : "USA") << " exit_code=0x" << std::hex << code << '\n';
+    }
     std::ifstream output(log_path);
     const std::string contents((std::istreambuf_iterator<char>(output)), {});
     if (code == 0 || (code == 3 && contents.find("Stopped: Window closed") != std::string::npos)) return 0;
-    return fail(L"The development build stopped while running the game.\n\nDetails are saved in:\n" + log_path.wstring());
+    return fail(L"The game stopped unexpectedly.\n\nDetails are saved in:\n" + log_path.wstring());
 }
