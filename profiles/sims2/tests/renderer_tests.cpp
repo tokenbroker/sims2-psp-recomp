@@ -1,6 +1,7 @@
 #include "gpu/native_renderer.hpp"
 #include "ge/ge.hpp"
 #include <algorithm>
+#include <cstdlib>
 #include <iostream>
 #if defined(SIMS2_VULKAN)
 #include <SDL3/SDL.h>
@@ -217,6 +218,31 @@ int main(int argc,char **argv) {
             for(unsigned y=0;y<40;++y)
                 require(memory.load32(textured.target.color_address+(y*512u+300u)*4u)==(0xff000000u|(y+1u)),
                         "Upload arena rollover corrupted an earlier texture");
+            // A failed submission leaves its command buffer with SDL. The renderer
+            // must not record into it again: doing so faults inside AMD's Vulkan
+            // driver (null read at 0x10) and is a validation error elsewhere.
+#if defined(_WIN32)
+            _putenv_s("SIMS2_TEST_FAIL_SUBMIT","2");
+            NativeRenderer failing(true);
+            _putenv_s("SIMS2_TEST_FAIL_SUBMIT","");
+#else
+            setenv("SIMS2_TEST_FAIL_SUBMIT","2",1);
+            NativeRenderer failing(true);
+            unsetenv("SIMS2_TEST_FAIL_SUBMIT");
+#endif
+            psprecomp::GuestMemory recovered;
+            DrawCall sprite{};sprite.through=true;sprite.has_vertex_color=true;sprite.primitive=PrimitiveType::Sprites;
+            sprite.target={0x04000000u,512u,3u,0x04180000u,512u};sprite.vertices.resize(2);
+            sprite.vertices[0].position={10,20,100,1};sprite.vertices[1].position={30,40,100,1};
+            sprite.vertices[1].color=0xff0000ffu;
+            failing.draw(recovered,sprite);
+            bool reported=false;
+            try{failing.prepare_transfer(recovered,BlockTransfer{0x09000000u,512,0,0,0x09100000u,512,0,0,1,1,4});}
+            catch(const std::exception &){reported=true;}
+            require(reported,"Simulated submission failure was not reported");
+            failing.draw(recovered,sprite);failing.flush(recovered);
+            require(recovered.load32(0x04000000u+(25u*512u+15u)*4u)==0xff0000ffu,
+                    "Renderer reused a submitted command buffer after a failed submission");
         }
 #endif
         if(scale>1){

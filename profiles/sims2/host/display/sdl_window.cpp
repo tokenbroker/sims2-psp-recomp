@@ -1,3 +1,4 @@
+#include "platform/native_crash.hpp"
 #include "ctrl/host_input.hpp"
 #include "ctrl/native_gamepad.hpp"
 #include "display/native_window.hpp"
@@ -49,7 +50,7 @@ struct NativeWindow::Impl : SettingsMenu {
     std::vector<std::string> slots;
     ~Impl() {
         if (device)
-            SDL_WaitForGPUIdle(device);
+            platform::native_call("SDL_WaitForGPUIdle", [&] { return SDL_WaitForGPUIdle(device); });
         if (gui) {
             ImGui::SetCurrentContext(gui);
             if (graphics)
@@ -170,11 +171,12 @@ struct NativeWindow::Impl : SettingsMenu {
         }
         width = unsigned(w);
         height = unsigned(h);
+        platform::NativeCallScope phase("vulkan-output");
         if (vsync != current.vsync) {
             auto mode = current.vsync ? SDL_GPU_PRESENTMODE_VSYNC : SDL_GPU_PRESENTMODE_IMMEDIATE;
             if (!SDL_WindowSupportsGPUPresentMode(device, window, mode))
                 mode = SDL_GPU_PRESENTMODE_VSYNC;
-            check(SDL_SetGPUSwapchainParameters(device, window, SDL_GPU_SWAPCHAINCOMPOSITION_SDR, mode),
+            check(platform::native_call("SDL_SetGPUSwapchainParameters", [&] { return SDL_SetGPUSwapchainParameters(device, window, SDL_GPU_SWAPCHAINCOMPOSITION_SDR, mode); }),
                   "Set Vulkan present mode");
             vsync = current.vsync;
         }
@@ -193,11 +195,11 @@ struct NativeWindow::Impl : SettingsMenu {
         width = unsigned(logical.x);
         height = unsigned(logical.y);
         ImGui::NewFrame();
-        auto *commands = SDL_AcquireGPUCommandBuffer(device);
+        auto *commands = platform::native_call("SDL_AcquireGPUCommandBuffer", [&] { return SDL_AcquireGPUCommandBuffer(device); });
         check(commands, "Acquire Vulkan output commands");
         SDL_GPUTexture *swap{};
         Uint32 sw{}, sh{};
-        if (!SDL_WaitAndAcquireGPUSwapchainTexture(commands, window, &swap, &sw, &sh)) {
+        if (!platform::native_call("SDL_WaitAndAcquireGPUSwapchainTexture", [&] { return SDL_WaitAndAcquireGPUSwapchainTexture(commands, window, &swap, &sw, &sh); })) {
             SDL_CancelGPUCommandBuffer(commands);
             check(false, "Acquire Vulkan swapchain");
         }
@@ -220,16 +222,17 @@ struct NativeWindow::Impl : SettingsMenu {
             SDL_GPUTransferBufferCreateInfo info{};
             info.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD;
             info.size = 480 * 272 * 4;
-            auto *transfer = SDL_CreateGPUTransferBuffer(device, &info);
+            auto *transfer = platform::native_call("SDL_CreateGPUTransferBuffer", [&] { return SDL_CreateGPUTransferBuffer(device, &info); });
             check(transfer, "Create output upload");
-            auto *mapped = static_cast<std::uint32_t *>(SDL_MapGPUTransferBuffer(device, transfer, false));
+            auto *mapped = static_cast<std::uint32_t *>(platform::native_call("SDL_MapGPUTransferBuffer", [&] { return SDL_MapGPUTransferBuffer(device, transfer, false); }));
             check(mapped, "Map output upload");
             for (unsigned i = 0; i < pixels.size(); ++i) {
                 auto p = pixels[i];
                 mapped[i] = (p & 0xff00ff00u) | ((p & 255) << 16) | ((p >> 16) & 255) | 0xff000000u;
             }
-            SDL_UnmapGPUTransferBuffer(device, transfer);
-            auto *copy = SDL_BeginGPUCopyPass(commands);
+            platform::native_call("SDL_UnmapGPUTransferBuffer", [&] { return SDL_UnmapGPUTransferBuffer(device, transfer); });
+            auto *copy = platform::native_call("SDL_BeginGPUCopyPass", [&] { return SDL_BeginGPUCopyPass(commands); });
+            check(copy, "Begin output upload pass");
             SDL_GPUTextureTransferInfo src{};
             src.transfer_buffer = transfer;
             src.pixels_per_row = 480;
@@ -239,8 +242,8 @@ struct NativeWindow::Impl : SettingsMenu {
             dst.w = 480;
             dst.h = 272;
             dst.d = 1;
-            SDL_UploadToGPUTexture(copy, &src, &dst, true);
-            SDL_EndGPUCopyPass(copy);
+            platform::native_call("SDL_UploadToGPUTexture", [&] { return SDL_UploadToGPUTexture(copy, &src, &dst, true); });
+            platform::native_call("SDL_EndGPUCopyPass", [&] { return SDL_EndGPUCopyPass(copy); });
             SDL_ReleaseGPUTransferBuffer(device, transfer);
             image = upload;
         }
@@ -264,17 +267,17 @@ struct NativeWindow::Impl : SettingsMenu {
         performance_panel(current, sw, sh);
         input_panel(current);
         ImGui::Render();
-        Imgui_ImplSDLGPU3_PrepareDrawData(ImGui::GetDrawData(), commands);
+        platform::native_call("Imgui_ImplSDLGPU3_PrepareDrawData", [&] { return Imgui_ImplSDLGPU3_PrepareDrawData(ImGui::GetDrawData(), commands); });
         SDL_GPUColorTargetInfo target{};
         target.texture = swap;
         target.load_op = SDL_GPU_LOADOP_CLEAR;
         target.store_op = SDL_GPU_STOREOP_STORE;
         target.clear_color = {0, 0, 0, 1};
-        auto *pass = SDL_BeginGPURenderPass(commands, &target, 1, nullptr);
+        auto *pass = platform::native_call("SDL_BeginGPURenderPass", [&] { return SDL_BeginGPURenderPass(commands, &target, 1, nullptr); });
         check(pass, "Begin Vulkan output pass");
-        ImGui_ImplSDLGPU3_RenderDrawData(ImGui::GetDrawData(), commands, pass);
-        SDL_EndGPURenderPass(pass);
-        check(SDL_SubmitGPUCommandBuffer(commands), "Present Vulkan output");
+        platform::native_call("ImGui_ImplSDLGPU3_RenderDrawData", [&] { return ImGui_ImplSDLGPU3_RenderDrawData(ImGui::GetDrawData(), commands, pass); });
+        platform::native_call("SDL_EndGPURenderPass", [&] { return SDL_EndGPURenderPass(pass); });
+        check(platform::native_call("SDL_SubmitGPUCommandBuffer", [&] { return SDL_SubmitGPUCommandBuffer(commands); }), "Present Vulkan output");
         ++presentations;
         return action;
     }
@@ -294,10 +297,10 @@ NativeWindow::NativeWindow(bool visible, gpu::NativeRenderer *renderer, bool hid
     p.window = SDL_CreateWindow("The Sims 2 PSP", 960, 544, flags);
     check(p.window, "Create SDL window");
     SDL_SetWindowMinimumSize(p.window, 480, 272);
-    check(SDL_ClaimWindowForGPUDevice(p.device, p.window), "Create Vulkan surface");
+    check(platform::native_call("SDL_ClaimWindowForGPUDevice", [&] { return SDL_ClaimWindowForGPUDevice(p.device, p.window); }), "Create Vulkan surface");
     p.claimed = true;
-    check(SDL_SetGPUSwapchainParameters(p.device, p.window, SDL_GPU_SWAPCHAINCOMPOSITION_SDR,
-                                        SDL_GPU_PRESENTMODE_VSYNC),
+    check(platform::native_call("SDL_SetGPUSwapchainParameters", [&] { return SDL_SetGPUSwapchainParameters(p.device, p.window, SDL_GPU_SWAPCHAINCOMPOSITION_SDR,
+                                        SDL_GPU_PRESENTMODE_VSYNC); }),
           "Configure Vulkan swapchain");
     p.gamepad = std::make_unique<ctrl::NativeGamepad>();
     IMGUI_CHECKVERSION();
@@ -325,16 +328,16 @@ NativeWindow::NativeWindow(bool visible, gpu::NativeRenderer *renderer, bool hid
     texture.layer_count_or_depth = 1;
     texture.num_levels = 1;
     texture.sample_count = SDL_GPU_SAMPLECOUNT_1;
-    p.upload = SDL_CreateGPUTexture(p.device, &texture);
+    p.upload = platform::native_call("SDL_CreateGPUTexture", [&] { return SDL_CreateGPUTexture(p.device, &texture); });
     check(p.upload, "Create SDL framebuffer upload");
     SDL_GPUSamplerCreateInfo sampler{};
     sampler.address_mode_u = sampler.address_mode_v = sampler.address_mode_w =
         SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE;
     sampler.min_filter = sampler.mag_filter = SDL_GPU_FILTER_NEAREST;
-    p.nearest = SDL_CreateGPUSampler(p.device, &sampler);
+    p.nearest = platform::native_call("SDL_CreateGPUSampler", [&] { return SDL_CreateGPUSampler(p.device, &sampler); });
     check(p.nearest, "Create nearest output sampler");
     sampler.min_filter = sampler.mag_filter = SDL_GPU_FILTER_LINEAR;
-    p.linear = SDL_CreateGPUSampler(p.device, &sampler);
+    p.linear = platform::native_call("SDL_CreateGPUSampler", [&] { return SDL_CreateGPUSampler(p.device, &sampler); });
     check(p.linear, "Create linear output sampler");
     apply_settings(load_host_settings(p.settings_file));
 }

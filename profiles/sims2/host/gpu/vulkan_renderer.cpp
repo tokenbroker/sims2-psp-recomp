@@ -1,3 +1,4 @@
+#include "platform/native_crash.hpp"
 #include "gpu/native_renderer.hpp"
 #include "gpu/texture_decode.hpp"
 #include "gpu/triangle_indices.hpp"
@@ -14,6 +15,7 @@
 #include <map>
 #include <set>
 #include <tuple>
+#include <utility>
 namespace sims2::gpu {
 namespace {
 constexpr unsigned width = 512, height = 272;
@@ -186,18 +188,30 @@ struct NativeRenderer::Impl {
     unsigned scaled_height() const { return std::max(1u, unsigned(std::lround(height * scale))); }
     SDL_GPUCommandBuffer *cmd() {
         if (!commands) {
-            commands = SDL_AcquireGPUCommandBuffer(device);
+            commands = platform::native_call("SDL_AcquireGPUCommandBuffer", [&] { return SDL_AcquireGPUCommandBuffer(device); });
             require(commands, "Acquire Vulkan commands");
         }
         return commands;
     }
+    // Test hook: report the Nth submission as failed (SIMS2_TEST_FAIL_SUBMIT=N).
+    unsigned fail_submit_at = [] { const auto *n = std::getenv("SIMS2_TEST_FAIL_SUBMIT"); return n ? unsigned(std::strtoul(n, nullptr, 10)) : 0u; }();
+    unsigned submit_count{};
     void submit() {
-        if (commands) {
-            require(SDL_SubmitGPUCommandBuffer(commands), "Submit Vulkan commands");
-            commands = nullptr;
-        }
+        // SDL owns the buffer from the moment submission is attempted, even when
+        // it fails (lost device, out of memory). Forget it before reporting the
+        // failure: recording into a buffer that is no longer recording faults
+        // inside AMD's Vulkan driver (null read at 0x10) instead of erroring.
+        auto *pending = std::exchange(commands, nullptr);
         upload_cursor = 0;
         vertex_cursor = 0;
+        if (!pending)
+            return;
+        bool ok = platform::native_call("SDL_SubmitGPUCommandBuffer", [&] { return SDL_SubmitGPUCommandBuffer(pending); });
+        if (fail_submit_at && ++submit_count == fail_submit_at) {
+            SDL_SetError("simulated submission failure");
+            ok = false;
+        }
+        require(ok, "Submit Vulkan commands");
     }
     SDL_GPUTexture *texture(unsigned w, unsigned h, SDL_GPUTextureUsageFlags usage,
                             SDL_GPUTextureFormat format = SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM) {
@@ -210,7 +224,7 @@ struct NativeRenderer::Impl {
         info.layer_count_or_depth = 1;
         info.num_levels = 1;
         info.sample_count = SDL_GPU_SAMPLECOUNT_1;
-        auto *t = SDL_CreateGPUTexture(device, &info);
+        auto *t = platform::native_call("SDL_CreateGPUTexture", [&] { return SDL_CreateGPUTexture(device, &info); });
         require(t, "Create Vulkan texture");
         return t;
     }
@@ -222,20 +236,21 @@ struct NativeRenderer::Impl {
             SDL_GPUTransferBufferCreateInfo info{};
             info.usage=SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD;
             info.size=upload_capacity;
-            uploads=SDL_CreateGPUTransferBuffer(device,&info);
+            uploads=platform::native_call("SDL_CreateGPUTransferBuffer", [&] { return SDL_CreateGPUTransferBuffer(device,&info); });
             require(uploads,"Create Vulkan upload arena");
         }
         const auto offset=upload_cursor;
-        auto *mapped = SDL_MapGPUTransferBuffer(device, uploads, offset==0);
+        auto *mapped = platform::native_call("SDL_MapGPUTransferBuffer", [&] { return SDL_MapGPUTransferBuffer(device, uploads, offset==0); });
         require(mapped, "Map Vulkan upload");
         std::memcpy(static_cast<std::uint8_t*>(mapped)+offset, data, bytes);
-        SDL_UnmapGPUTransferBuffer(device, uploads);
+        platform::native_call("SDL_UnmapGPUTransferBuffer", [&] { return SDL_UnmapGPUTransferBuffer(device, uploads); });
         upload_cursor+=reserved;
         return {uploads,offset};
     }
     void upload_texture(SDL_GPUTexture *t, const std::uint32_t *data, unsigned w, unsigned h) {
         const auto transfer = upload(data, w * h * 4);
-        auto *copy = SDL_BeginGPUCopyPass(cmd());
+        auto *copy = platform::native_call("SDL_BeginGPUCopyPass", [&] { return SDL_BeginGPUCopyPass(cmd()); });
+        require(copy, "Begin Vulkan copy pass");
         SDL_GPUTextureTransferInfo src{};
         src.transfer_buffer = transfer.buffer;
         src.offset = transfer.offset;
@@ -246,8 +261,8 @@ struct NativeRenderer::Impl {
         dst.w = w;
         dst.h = h;
         dst.d = 1;
-        SDL_UploadToGPUTexture(copy, &src, &dst, false);
-        SDL_EndGPUCopyPass(copy);
+        platform::native_call("SDL_UploadToGPUTexture", [&] { return SDL_UploadToGPUTexture(copy, &src, &dst, false); });
+        platform::native_call("SDL_EndGPUCopyPass", [&] { return SDL_EndGPUCopyPass(copy); });
     }
     void blit(SDL_GPUTexture *src, SDL_GPUTexture *dst, unsigned sw, unsigned sh, unsigned dw, unsigned dh) {
         SDL_GPUBlitInfo info{};
@@ -259,10 +274,11 @@ struct NativeRenderer::Impl {
         info.destination.h = dh;
         info.load_op = SDL_GPU_LOADOP_DONT_CARE;
         info.filter = SDL_GPU_FILTER_NEAREST;
-        SDL_BlitGPUTexture(cmd(), &info);
+        platform::native_call("SDL_BlitGPUTexture", [&] { return SDL_BlitGPUTexture(cmd(), &info); });
     }
     SDL_GPUTexture *presentation(Target &target) {
         if(target.presentation_ready)return target.presentation;
+        platform::NativeCallScope phase("vulkan-presentation");
         if(!target.presentation)
             target.presentation=texture(scaled_width(),scaled_height(),
                 SDL_GPU_TEXTUREUSAGE_COLOR_TARGET|SDL_GPU_TEXTUREUSAGE_SAMPLER);
@@ -289,10 +305,10 @@ struct NativeRenderer::Impl {
             color.blend_state.dst_color_blendfactor=color.blend_state.dst_alpha_blendfactor=SDL_GPU_BLENDFACTOR_ZERO;
             color.blend_state.color_blend_op=color.blend_state.alpha_blend_op=SDL_GPU_BLENDOP_ADD;
             info.target_info.color_target_descriptions=&color;info.target_info.num_color_targets=1;
-            opaque_presentation=SDL_CreateGPUGraphicsPipeline(device,&info);
+            opaque_presentation=platform::native_call("SDL_CreateGPUGraphicsPipeline", [&] { return SDL_CreateGPUGraphicsPipeline(device,&info); });
             require(opaque_presentation,"Create opaque presentation pipeline");
             SDL_GPUSamplerCreateInfo sampler{};
-            presentation_sampler=SDL_CreateGPUSampler(device,&sampler);
+            presentation_sampler=platform::native_call("SDL_CreateGPUSampler", [&] { return SDL_CreateGPUSampler(device,&sampler); });
             require(presentation_sampler,"Create presentation sampler");
         }
         std::array<GpuVertex,4> quad{};
@@ -303,23 +319,24 @@ struct NativeRenderer::Impl {
         }
         if(vertex_cursor+sizeof(quad)>vertex_capacity)submit();
         const auto transfer=upload(quad.data(),sizeof(quad));
-        auto *copy=SDL_BeginGPUCopyPass(cmd());
+        auto *copy=platform::native_call("SDL_BeginGPUCopyPass", [&] { return SDL_BeginGPUCopyPass(cmd()); });
+        require(copy, "Begin Vulkan presentation copy pass");
         SDL_GPUTransferBufferLocation source{transfer.buffer,transfer.offset};
         SDL_GPUBufferRegion destination{vertices,vertex_cursor,sizeof(quad)};
-        SDL_UploadToGPUBuffer(copy,&source,&destination,vertex_cursor==0);SDL_EndGPUCopyPass(copy);
+        platform::native_call("SDL_UploadToGPUBuffer", [&] { return SDL_UploadToGPUBuffer(copy,&source,&destination,vertex_cursor==0); });platform::native_call("SDL_EndGPUCopyPass", [&] { return SDL_EndGPUCopyPass(copy); });
         SDL_GPUColorTargetInfo color{};color.texture=target.presentation;
         color.load_op=SDL_GPU_LOADOP_DONT_CARE;color.store_op=SDL_GPU_STOREOP_STORE;
-        auto *pass=SDL_BeginGPURenderPass(cmd(),&color,1,nullptr);
+        auto *pass=platform::native_call("SDL_BeginGPURenderPass", [&] { return SDL_BeginGPURenderPass(cmd(),&color,1,nullptr); });
         require(pass,"Begin opaque presentation pass");
-        SDL_BindGPUGraphicsPipeline(pass,opaque_presentation);
+        platform::native_call("SDL_BindGPUGraphicsPipeline", [&] { return SDL_BindGPUGraphicsPipeline(pass,opaque_presentation); });
         SDL_GPUViewport viewport{0,0,float(scaled_width()),float(scaled_height()),0,1};
         SDL_SetGPUViewport(pass,&viewport);
         SDL_Rect scissor{0,0,int(scaled_width()),int(scaled_height())};SDL_SetGPUScissor(pass,&scissor);
-        SDL_GPUBufferBinding binding{vertices,vertex_cursor};SDL_BindGPUVertexBuffers(pass,0,&binding,1);
-        SDL_GPUTextureSamplerBinding sample{target.color,presentation_sampler};SDL_BindGPUFragmentSamplers(pass,0,&sample,1);
+        SDL_GPUBufferBinding binding{vertices,vertex_cursor};platform::native_call("SDL_BindGPUVertexBuffers", [&] { return SDL_BindGPUVertexBuffers(pass,0,&binding,1); });
+        SDL_GPUTextureSamplerBinding sample{target.color,presentation_sampler};platform::native_call("SDL_BindGPUFragmentSamplers", [&] { return SDL_BindGPUFragmentSamplers(pass,0,&sample,1); });
         Parameters parameters{};parameters.textured=1;parameters.function=3;
         SDL_PushGPUFragmentUniformData(cmd(),0,&parameters,sizeof(parameters));
-        SDL_DrawGPUPrimitives(pass,4,1,0,0);SDL_EndGPURenderPass(pass);
+        platform::native_call("SDL_DrawGPUPrimitives", [&] { return SDL_DrawGPUPrimitives(pass,4,1,0,0); });platform::native_call("SDL_EndGPURenderPass", [&] { return SDL_EndGPURenderPass(pass); });
         submit();target.presentation_ready=true;
         return target.presentation;
     }
@@ -346,9 +363,9 @@ struct NativeRenderer::Impl {
             z.store_op = SDL_GPU_STOREOP_STORE;
             z.stencil_load_op = SDL_GPU_LOADOP_DONT_CARE;
             z.stencil_store_op = SDL_GPU_STOREOP_DONT_CARE;
-            auto *pass = SDL_BeginGPURenderPass(cmd(), nullptr, 0, &z);
+            auto *pass = platform::native_call("SDL_BeginGPURenderPass", [&] { return SDL_BeginGPURenderPass(cmd(), nullptr, 0, &z); });
             require(pass, "Clear Vulkan depth");
-            SDL_EndGPURenderPass(pass);
+            platform::native_call("SDL_EndGPURenderPass", [&] { return SDL_EndGPURenderPass(pass); });
         }
         if (out.upload) {
             const auto size = std::size_t(guest.color_stride) * height * (guest.color_format == 3 ? 4 : 2);
@@ -371,9 +388,10 @@ struct NativeRenderer::Impl {
         }
         return out;
     }
-    void clear_targets() {
+    void clear_targets(bool checked = true) {
         submit();
-        SDL_WaitForGPUIdle(device);
+        const auto idle = platform::native_call("SDL_WaitForGPUIdle", [&] { return SDL_WaitForGPUIdle(device); });
+        if (checked) require(idle, "Wait Vulkan targets idle");
         for (auto &[key, t] : targets) {
             SDL_ReleaseGPUTexture(device, t.color);
             SDL_ReleaseGPUTexture(device, t.depth);
@@ -392,8 +410,8 @@ struct NativeRenderer::Impl {
         // Destruction must not throw, including after a lost device. Unsubmitted
         // work can be discarded here; normal flushes submit before destruction.
         if(commands){SDL_CancelGPUCommandBuffer(commands);commands=nullptr;}
-        SDL_WaitForGPUIdle(device);
-        clear_targets();
+        platform::native_call("SDL_WaitForGPUIdle", [&] { return SDL_WaitForGPUIdle(device); });
+        clear_targets(false);
         for (auto &[key, t] : textures)
             SDL_ReleaseGPUTexture(device, t);
         for (auto &[key, t] : samplers)
@@ -419,7 +437,7 @@ struct NativeRenderer::Impl {
 };
 NativeRenderer::NativeRenderer(bool) : impl_(std::make_unique<Impl>()) {
     auto &r = *impl_;
-    SDL_SetAppMetadata("The Sims 2 PSP Recomp", "0.4.3", "io.github.sims2psprecomp");
+    SDL_SetAppMetadata("The Sims 2 PSP Recomp", "0.4.4", "io.github.sims2psprecomp");
     if (std::getenv("SIMS2_GPU_DEBUG")) {
         SDL_SetLogOutputFunction(+[](void *, int, SDL_LogPriority, const char *message) {
             std::cerr << "[sdl-gpu] " << message << '\n';
@@ -429,7 +447,7 @@ NativeRenderer::NativeRenderer(bool) : impl_(std::make_unique<Impl>()) {
     require(SDL_InitSubSystem(SDL_INIT_VIDEO), "Initialize SDL Vulkan video");
     r.video = true;
     r.device =
-        SDL_CreateGPUDevice(SDL_GPU_SHADERFORMAT_SPIRV, std::getenv("SIMS2_GPU_DEBUG") != nullptr, "vulkan");
+        platform::native_call("SDL_CreateGPUDevice", [&] { return SDL_CreateGPUDevice(SDL_GPU_SHADERFORMAT_SPIRV, std::getenv("SIMS2_GPU_DEBUG") != nullptr, "vulkan"); });
     require(r.device, "Create Vulkan GPU device");
     auto shader = [&](auto &code, SDL_GPUShaderStage stage) {
         SDL_GPUShaderCreateInfo info{};
@@ -442,7 +460,7 @@ NativeRenderer::NativeRenderer(bool) : impl_(std::make_unique<Impl>()) {
             info.num_samplers = 1;
             info.num_uniform_buffers = 1;
         }
-        auto *s = SDL_CreateGPUShader(r.device, &info);
+        auto *s = platform::native_call("SDL_CreateGPUShader", [&] { return SDL_CreateGPUShader(r.device, &info); });
         require(s, "Create Vulkan shader");
         return s;
     };
@@ -451,7 +469,7 @@ NativeRenderer::NativeRenderer(bool) : impl_(std::make_unique<Impl>()) {
     SDL_GPUBufferCreateInfo info{};
     info.usage = SDL_GPU_BUFFERUSAGE_VERTEX;
     info.size = r.vertex_capacity;
-    r.vertices = SDL_CreateGPUBuffer(r.device, &info);
+    r.vertices = platform::native_call("SDL_CreateGPUBuffer", [&] { return SDL_CreateGPUBuffer(r.device, &info); });
     require(r.vertices, "Create Vulkan vertex buffer");
     r.white = r.texture(1, 1, SDL_GPU_TEXTUREUSAGE_SAMPLER);
     const std::uint32_t white = 0xffffffff;
@@ -525,6 +543,7 @@ void NativeRenderer::prepare_transfer(psprecomp::GuestMemory &memory, const Bloc
 }
 void NativeRenderer::flush(psprecomp::GuestMemory &memory, const BlockTransfer *transfer) {
     auto &r = *impl_;
+    platform::NativeCallScope phase("vulkan-flush");
     auto start = std::chrono::steady_clock::now();
     for (auto &[key, t] : r.targets) {
         if (!t.dirty)
@@ -550,10 +569,11 @@ void NativeRenderer::flush(psprecomp::GuestMemory &memory, const BlockTransfer *
         SDL_GPUTransferBufferCreateInfo info{};
         info.usage = SDL_GPU_TRANSFERBUFFERUSAGE_DOWNLOAD;
         info.size = width * height * 4;
-        if(!t.readback)t.readback=SDL_CreateGPUTransferBuffer(r.device,&info);
+        if(!t.readback)t.readback=platform::native_call("SDL_CreateGPUTransferBuffer", [&] { return SDL_CreateGPUTransferBuffer(r.device,&info); });
         auto *download = t.readback;
         require(download, "Create Vulkan readback");
-        auto *pass = SDL_BeginGPUCopyPass(r.cmd());
+        auto *pass = platform::native_call("SDL_BeginGPUCopyPass", [&] { return SDL_BeginGPUCopyPass(r.cmd()); });
+        require(pass, "Begin Vulkan readback pass");
         SDL_GPUTextureRegion src{};
         src.texture = t.native;
         src.w = width;
@@ -563,15 +583,15 @@ void NativeRenderer::flush(psprecomp::GuestMemory &memory, const BlockTransfer *
         dst.transfer_buffer = download;
         dst.pixels_per_row = width;
         dst.rows_per_layer = height;
-        SDL_DownloadFromGPUTexture(pass, &src, &dst);
-        SDL_EndGPUCopyPass(pass);
-        auto *fence = SDL_SubmitGPUCommandBufferAndAcquireFence(r.commands);
+        platform::native_call("SDL_DownloadFromGPUTexture", [&] { return SDL_DownloadFromGPUTexture(pass, &src, &dst); });
+        platform::native_call("SDL_EndGPUCopyPass", [&] { return SDL_EndGPUCopyPass(pass); });
+        auto *fence = platform::native_call("SDL_SubmitGPUCommandBufferAndAcquireFence", [&] { return SDL_SubmitGPUCommandBufferAndAcquireFence(r.commands); });
         r.commands = nullptr;
         require(fence, "Submit Vulkan readback");
-        require(SDL_WaitForGPUFences(r.device, true, &fence, 1), "Wait Vulkan readback");
+        require(platform::native_call("SDL_WaitForGPUFences", [&] { return SDL_WaitForGPUFences(r.device, true, &fence, 1); }), "Wait Vulkan readback");
         SDL_ReleaseGPUFence(r.device, fence);
         auto *pixels =
-            static_cast<const std::uint32_t *>(SDL_MapGPUTransferBuffer(r.device, download, false));
+            static_cast<const std::uint32_t *>(platform::native_call("SDL_MapGPUTransferBuffer", [&] { return SDL_MapGPUTransferBuffer(r.device, download, false); }));
         require(pixels, "Map Vulkan readback");
         const auto &g = t.guest;
         auto *destination=memory.raw_pointer(g.color_address,std::size_t(g.color_stride)*height*(g.color_format==3?4u:2u));
@@ -590,7 +610,7 @@ void NativeRenderer::flush(psprecomp::GuestMemory &memory, const BlockTransfer *
                     memory.store16(at, pack(pixels[y * width + x], g.color_format));
             }
         }
-        SDL_UnmapGPUTransferBuffer(r.device, download);
+        platform::native_call("SDL_UnmapGPUTransferBuffer", [&] { return SDL_UnmapGPUTransferBuffer(r.device, download); });
         ++r.flush_count;
         t.dirty = false;
         t.upload = true;
@@ -611,6 +631,7 @@ void NativeRenderer::draw(psprecomp::GuestMemory &memory, const DrawCall &call) 
         throw psprecomp::Error("PSP framebuffer-alpha stencil testing is not implemented in Vulkan");
     auto start = std::chrono::steady_clock::now();
     auto &r = *impl_;
+    platform::NativeCallScope phase("vulkan-draw");
     if (call.texture.enabled && !call.clear_mode) {
         bool feedback = false;
         const auto a = call.texture.address & 0x0fffffffu;
@@ -772,7 +793,7 @@ void NativeRenderer::draw(psprecomp::GuestMemory &memory, const DrawCall &call) 
             r.upload_texture(image, pixels.data(), call.texture.width, call.texture.height);
             if (r.textures.size() > 2048) {
                 r.submit();
-                SDL_WaitForGPUIdle(r.device);
+                require(platform::native_call("SDL_WaitForGPUIdle", [&] { return SDL_WaitForGPUIdle(r.device); }), "Wait Vulkan texture cache idle");
                 for (auto &[k, t] : r.textures)
                     SDL_ReleaseGPUTexture(r.device, t);
                 r.textures.clear();
@@ -802,7 +823,7 @@ void NativeRenderer::draw(psprecomp::GuestMemory &memory, const DrawCall &call) 
         i.enable_anisotropy = aniso > 0;
         i.max_anisotropy = float(std::max(aniso, 1u));
         i.max_lod = 0;
-        sampler = SDL_CreateGPUSampler(r.device, &i);
+        sampler = platform::native_call("SDL_CreateGPUSampler", [&] { return SDL_CreateGPUSampler(r.device, &i); });
         require(sampler, "Create Vulkan sampler");
     }
     SDL_GPUColorTargetBlendState blend{};
@@ -879,6 +900,7 @@ void NativeRenderer::draw(psprecomp::GuestMemory &memory, const DrawCall &call) 
                                  unsigned(blend.color_blend_op),
                                  0};
     auto &pipeline = r.pipelines[key];
+    platform::set_native_call_detail(key.data(), key.size());
     if (!pipeline) {
         SDL_GPUGraphicsPipelineCreateInfo i{};
         i.vertex_shader = r.vs;
@@ -906,7 +928,7 @@ void NativeRenderer::draw(psprecomp::GuestMemory &memory, const DrawCall &call) 
         i.target_info.num_color_targets = 1;
         i.target_info.has_depth_stencil_target = true;
         i.target_info.depth_stencil_format = SDL_GPU_TEXTUREFORMAT_D32_FLOAT;
-        pipeline = SDL_CreateGPUGraphicsPipeline(r.device, &i);
+        pipeline = platform::native_call("SDL_CreateGPUGraphicsPipeline", [&] { return SDL_CreateGPUGraphicsPipeline(r.device, &i); });
         require(pipeline, "Create Vulkan GE pipeline");
     }
     unsigned bytes = unsigned(output.size() * sizeof(GpuVertex));
@@ -915,11 +937,12 @@ void NativeRenderer::draw(psprecomp::GuestMemory &memory, const DrawCall &call) 
     if (r.vertex_cursor + bytes > r.vertex_capacity)
         r.submit();
     const auto transfer = r.upload(output.data(), bytes);
-    auto *copy = SDL_BeginGPUCopyPass(r.cmd());
+    auto *copy = platform::native_call("SDL_BeginGPUCopyPass", [&] { return SDL_BeginGPUCopyPass(r.cmd()); });
+    require(copy, "Begin Vulkan copy pass");
     SDL_GPUTransferBufferLocation src{transfer.buffer, transfer.offset};
     SDL_GPUBufferRegion dst{r.vertices, r.vertex_cursor, bytes};
-    SDL_UploadToGPUBuffer(copy, &src, &dst, r.vertex_cursor == 0);
-    SDL_EndGPUCopyPass(copy);
+    platform::native_call("SDL_UploadToGPUBuffer", [&] { return SDL_UploadToGPUBuffer(copy, &src, &dst, r.vertex_cursor == 0); });
+    platform::native_call("SDL_EndGPUCopyPass", [&] { return SDL_EndGPUCopyPass(copy); });
     SDL_GPUColorTargetInfo color{};
     color.texture = target.color;
     color.load_op = SDL_GPU_LOADOP_LOAD;
@@ -930,9 +953,9 @@ void NativeRenderer::draw(psprecomp::GuestMemory &memory, const DrawCall &call) 
     depth.store_op = SDL_GPU_STOREOP_STORE;
     depth.stencil_load_op = SDL_GPU_LOADOP_DONT_CARE;
     depth.stencil_store_op = SDL_GPU_STOREOP_DONT_CARE;
-    auto *pass = SDL_BeginGPURenderPass(r.cmd(), &color, 1, &depth);
+    auto *pass = platform::native_call("SDL_BeginGPURenderPass", [&] { return SDL_BeginGPURenderPass(r.cmd(), &color, 1, &depth); });
     require(pass, "Begin Vulkan GE pass");
-    SDL_BindGPUGraphicsPipeline(pass, pipeline);
+    platform::native_call("SDL_BindGPUGraphicsPipeline", [&] { return SDL_BindGPUGraphicsPipeline(pass, pipeline); });
     SDL_GPUViewport viewport{0, 0, float(r.scaled_width()), float(r.scaled_height()), 0, 1};
     SDL_SetGPUViewport(pass, &viewport);
     const auto horizontal = [&](float x) {
@@ -953,12 +976,12 @@ void NativeRenderer::draw(psprecomp::GuestMemory &memory, const DrawCall &call) 
     SDL_SetGPUScissor(pass, &scissor);
     SDL_SetGPUBlendConstants(pass, constant);
     SDL_GPUBufferBinding binding{r.vertices, r.vertex_cursor};
-    SDL_BindGPUVertexBuffers(pass, 0, &binding, 1);
+    platform::native_call("SDL_BindGPUVertexBuffers", [&] { return SDL_BindGPUVertexBuffers(pass, 0, &binding, 1); });
     SDL_GPUTextureSamplerBinding sample{image, sampler};
-    SDL_BindGPUFragmentSamplers(pass, 0, &sample, 1);
+    platform::native_call("SDL_BindGPUFragmentSamplers", [&] { return SDL_BindGPUFragmentSamplers(pass, 0, &sample, 1); });
     SDL_PushGPUFragmentUniformData(r.cmd(), 0, &params, sizeof(params));
-    SDL_DrawGPUPrimitives(pass, unsigned(output.size()), 1, 0, 0);
-    SDL_EndGPURenderPass(pass);
+    platform::native_call("SDL_DrawGPUPrimitives", [&] { return SDL_DrawGPUPrimitives(pass, unsigned(output.size()), 1, 0, 0); });
+    platform::native_call("SDL_EndGPURenderPass", [&] { return SDL_EndGPURenderPass(pass); });
     r.vertex_cursor += bytes;
     target.dirty = true;
     target.presentation_ready=false;

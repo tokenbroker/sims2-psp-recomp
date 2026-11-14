@@ -382,9 +382,16 @@ int main(int argc, char **argv) {
         kernel.begin_main_thread(runtime->cpu(), "module_start", 0x20u);
         std::string execution_error;
         try { runtime->run(elf.runtime_entry(), max_dispatches); }
-        catch (const std::exception &error) { execution_error = error.what(); }
+        catch (const std::exception &error) {
+            // Report the cause before anything else touches the GPU, so a fault
+            // during shutdown cannot replace it in the log.
+            execution_error = error.what();
+            std::cerr << "[runtime] " << execution_error << std::endl;
+        }
 #if defined(_WIN32) || defined(SIMS2_VULKAN)
-        renderer.flush(runtime->memory());
+        // After a failed run the renderer may be the component that failed.
+        // Do not issue further GPU work through it.
+        if (execution_error.empty()) renderer.flush(runtime->memory());
         if (window) if (const auto *path = std::getenv("SIMS2_CAPTURE_LAST_BMP")) window->capture(path);
         if(timing_path){std::ofstream trace(timing_path);trace<<"{\"native_vblank_hz\":59.94005994,\"active_display_hz\":"<<sims2::kernel::guest_display_frequency()<<",\"calls\":[";bool first=true;
             for(const auto &[key,count]:timing_calls){if(!first)trace<<',';first=false;trace<<"{\"kind\":\""<<key.first<<"\",\"return_pc\":\""<<psprecomp::hex32(key.second)<<"\",\"count\":"<<count<<'}';}trace<<"]}\n";}

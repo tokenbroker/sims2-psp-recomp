@@ -7,5 +7,8 @@ assert result.returncode != 0, "Crash probe did not fault"
 assert "[native-crash] code=0xc0000005" in text, text
 assert "module=sims2_native_crash_probe.exe offset=0x" in text, text
 assert "access=write address=0x10" in text, text
+assert "operation=synthetic-fault active_call=synthetic-fault" in text, text
+assert "call_thread=0x" in text and "fault_thread=0x" in text, text
+assert "detail=0x7,0x9,0x0," in text, text
 assert "\\" not in text and "/" not in text, "Report contains a path"
 print("Native fault recorded with module and offset, without module paths")

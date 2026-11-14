@@ -41,11 +41,65 @@ captured by the fatal-error handler. Existing runtime logs can contain local
 save paths; review/redact those paths before posting a log publicly.
 
 Vulkan startup also records the SDL version and GPU driver name/version/info.
+
+## v0.4.3 retest: fault inside the AMD driver
+
+The reporter's v0.4.3 log shows `module=amdvlk64.dll offset=0x3eee20 access=read
+address=0x10` after the save loads, with no stop report and no error text. The
+point-size correction did not address this crash.
+
+### What the fault is
+
+The reporter's driver build (`amdvlk64.dll` 9.2.10.416, from the public
+Adrenalin 26.10.1 package) was inspected at that offset. The faulting
+instruction reads the current position of a command buffer's scratch allocator
+while preparing an image layout transition. The allocator pointer is null. The
+driver sets that pointer when a command buffer begins recording and clears it
+when the buffer ends or is reset. The fault therefore means a command was
+recorded into a command buffer that was not recording.
+
+This reproduces on the local RX 6950 XT (driver 2.0.353): recording a blit into
+an SDL GPU command buffer that has already been submitted faults in
+`amdvlk64.dll` with the same `access=read address=0x10`. The offset differs
+because the driver build differs.
+
+### How the runtime got there
+
+`NativeRenderer::Impl::submit()` cleared its command-buffer pointer only after a
+successful submission. When `SDL_SubmitGPUCommandBuffer` failed, it threw and
+kept the pointer. `main.cpp` then caught the error and called
+`renderer.flush()` before printing anything, which recorded a framebuffer blit
+into the already-submitted buffer. The driver fault replaced the real error in
+the log. No other path that reuses a submitted command buffer was found in the
+renderer, the window, or SDL 3.4.20's Vulkan backend.
+
+This explains the crash signature. It does not yet explain why the submission
+failed on the 890M in the first place (for example a lost device or an
+out-of-memory result). Local AMD GPUs complete the same save-to-gameplay
+transition, including the integrated GPU at the 120 Hz engine rate.
+
+### Changes
+
+- `submit()` forgets the command buffer before reporting a failed submission.
+- A runtime error is written to the log as `[runtime] ...` as soon as it is
+  caught, and the final renderer flush is skipped after an error.
+- `SIMS2_TEST_FAIL_SUBMIT=N` reports the Nth submission as failed. The renderer
+  test uses it to check recovery; it crashed the previous renderer on AMD. The
+  desktop launcher clears the variable.
+- The fatal-error line also names the SDL GPU call in progress (`operation=`),
+  the renderer phase (`vulkan-draw`, `vulkan-flush`, `vulkan-presentation`,
+  `vulkan-output`), thread ids, and the numeric GE pipeline key of the current
+  draw (`detail=`). These are labels, enumerations and flags only.
+
+With these changes the same failure should end with a readable
+`Submit Vulkan commands: <Vulkan result>` line instead of a driver fault. That
+line is what identifies the underlying 890M failure.
+
 `SIMS2_GPU_DEBUG=1` forwards SDL GPU diagnostics to the runtime log; full Vulkan
 validation additionally requires installed validation layers. Normal play does
 not enable the expensive validation layers.
 
-The issue remains open pending a reporter retest. If v0.4.3 still crashes, its
-new `latest.log` should distinguish a fault in the runtime, SDL, a graphics
-driver, or an injected module. D3D11 remains the reporter-confirmed workaround;
+The issue remains open pending a reporter retest with a build that contains
+these changes. Its `latest.log` should show the Vulkan result behind the failed
+submission. D3D11 remains the reporter-confirmed workaround;
 the release does not silently change a saved renderer preference.

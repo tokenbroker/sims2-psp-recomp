@@ -277,3 +277,21 @@ Vulkan startup logs SDL and graphics-driver versions.
 The reported save-to-Sim crash was not reproduced on the local RX 6950 XT;
 normal off-screen swapchain runs reached gameplay before and after correction.
 The Radeon 890M report remains open. See [validation and limits](VULKAN_CRASHES.md).
+
+## v0.4.4 Vulkan failed-submission handling
+
+The Radeon 890M report on v0.4.3 showed a fault inside `amdvlk64.dll` with no
+error text. The reporter's driver build was inspected at the faulting offset:
+a command was recorded into a command buffer that was no longer recording. The
+same fault reproduces on the local RX 6950 XT by reusing a submitted SDL GPU
+command buffer.
+
+The renderer kept its command buffer after a failed submission, and the runtime
+flushed the renderer once more before printing the error. v0.4.4 forgets the
+buffer before reporting the failure, logs the runtime error as soon as it is
+caught, and skips the final flush after an error. A renderer test injects a
+failed submission and checks recovery; it crashed the previous renderer.
+
+This removes the driver fault. It does not explain why submission failed on the
+890M, which no local AMD GPU reproduces. The report stays open; the new log
+line names the Vulkan result. See [validation and limits](VULKAN_CRASHES.md).
