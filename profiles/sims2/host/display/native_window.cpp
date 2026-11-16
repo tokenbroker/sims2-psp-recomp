@@ -5,6 +5,7 @@
 #include "display/framebuffer_pixels.hpp"
 #include "display/save_slot_label.hpp"
 #include "display/settings_overlay.hpp"
+#include "display/frame_pacing.hpp"
 #include "display/presentation_limiter.hpp"
 #include "gpu/native_renderer.hpp"
 #include "ctrl/native_gamepad.hpp"
@@ -28,6 +29,10 @@ struct NativeWindow::Impl {
     std::unique_ptr<SettingsOverlay> overlay;
     HostSettings settings;
     PresentationLimiter limiter;
+    FramePacing pacing;
+    std::uint64_t late_us{};
+    // Test hook: every game presentation blocks this long (a slow display or frame limiter).
+    unsigned test_present_delay_ms = [] { const auto *n = std::getenv("SIMS2_TEST_PRESENT_DELAY_MS"); return n ? unsigned(std::strtoul(n, nullptr, 10)) : 0u; }();
     std::filesystem::path settings_file;
     std::function<void(float)> audio_control;
     std::array<bool,256> suppressed_keys{};
@@ -161,6 +166,13 @@ NativeWindow::~NativeWindow() {
         << " late_over_frame=" << impl_->late_frame << " max_late_us=" << impl_->max_late_us
         << " clock_resets=" << impl_->pacing_resets << " present_late_over_2ms=" << impl_->wake_2ms
         << " present_late_over_frame=" << impl_->wake_frame << " max_present_late_us=" << impl_->max_wake_us << '\n';
+    if (impl_->paced) {
+        impl_->pacing.report(std::cerr);
+        const auto &s = impl_->settings;
+        std::cerr << "[settings] width=" << s.width << " height=" << s.height << " render_scale=" << s.render_scale
+                  << " render_percent=" << s.render_percent << " fps_cap=" << s.fps_cap << " engine_fps=" << s.engine_fps
+                  << " vsync=" << s.vsync << '\n';
+    }
     impl_->overlay.reset();
     if (impl_->window) DestroyWindow(impl_->window);
 }
@@ -245,6 +257,7 @@ bool NativeWindow::present(const psprecomp::GuestMemory &memory, const Display::
     MSG message{};
     while (PeekMessageW(&message, nullptr, 0, 0, PM_REMOVE)) { TranslateMessage(&message); DispatchMessageW(&message); }
     if (p.closed) return false;
+    p.pacing.begin_frame(now_us);
     bool settings_open=p.overlay && p.overlay->open();
     ctrl::Controller::Pad pad;
     if (p.gamepad) pad = p.gamepad->sample(!settings_open && p.window && GetForegroundWindow() == p.window);
@@ -295,17 +308,22 @@ bool NativeWindow::present(const psprecomp::GuestMemory &memory, const Display::
         capture(path);
     }
     p.update_camera_aspect();
+    p.late_us = 0;
     synchronize(now_us);
     if(p.overlay){
         if(p.frames==capture_at)if(const auto *path=std::getenv("SIMS2_CAPTURE_OUTPUT_BMP"))p.overlay->capture_next_frame(path);
         const auto render=[&](bool game_frame){
             auto *view=p.renderer->presentation_view(memory,frame.address,frame.buffer_width,frame.pixel_format);
             if(game_frame && view)++p.scaled_presentations;
+            if(game_frame){p.pacing.begin_presentation();if(p.test_present_delay_ms)Sleep(p.test_present_delay_ms);}
             const auto action=p.overlay->present(p.pixels,p.settings,game_frame,view);
+            if(game_frame)p.pacing.end_presentation(now_us);
             if(action.apply){apply_settings(action.settings);p.overlay->status("Settings applied");}
             if(action.save){std::string error;const bool saved=save_host_settings(p.settings_file,p.settings,error);p.overlay->status(saved?"Settings saved":error);}
         };
-        if(p.overlay->open() || p.limiter.due(now_us,p.settings.fps_cap))render(true);
+        // A presentation that would make a late frame later is dropped, so display
+        // waits never turn into slow motion and broken audio.
+        if(p.overlay->open() || (p.limiter.due(now_us,p.settings.fps_cap) && !(p.paced && p.pacing.skip_presentation(now_us,p.late_us))))render(true);
         while(p.overlay->open() && !p.closed){
             const auto began=std::chrono::steady_clock::now();
             while(PeekMessageW(&message,nullptr,0,0,PM_REMOVE)){TranslateMessage(&message);DispatchMessageW(&message);}
@@ -321,6 +339,7 @@ bool NativeWindow::present(const psprecomp::GuestMemory &memory, const Display::
         }
         if(settings_open){p.wheel=0;p.host_input.release();p.suppress_keyboard();if(p.gamepad)p.dialog_consumed|=p.gamepad->sample(true).buttons;p.reset_pacing=true;}
     } else if (p.paced && p.window) { InvalidateRect(p.window, nullptr, FALSE); UpdateWindow(p.window); }
+    p.pacing.end_frame();
     return !p.closed;
 }
 void NativeWindow::synchronize(std::uint64_t now_us) {
@@ -331,6 +350,7 @@ void NativeWindow::synchronize(std::uint64_t now_us) {
             const auto deadline = p.start + std::chrono::microseconds(now_us - p.first_us);
             const auto late = current > deadline ? std::chrono::duration_cast<std::chrono::microseconds>(current - deadline).count() : 0;
             p.max_late_us = std::max(p.max_late_us, static_cast<std::uint64_t>(late));
+            p.late_us = static_cast<std::uint64_t>(late);
             p.late_2ms += late > 2000; p.late_frame += late > 16683;
         }
         if (p.paced_frames == 0u || p.reset_pacing ||

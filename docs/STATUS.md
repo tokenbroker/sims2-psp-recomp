@@ -309,3 +309,22 @@ those buffers only when they wrap. The local integrated-GPU save-to-gameplay
 run drops from 74,569 to 3,604 submissions and from 4.4 GB to 175 MB of shared
 graphics memory, with an identical final frame. Not yet confirmed on the 890M.
 See [validation and limits](VULKAN_CRASHES.md).
+
+## v0.4.6 Late frames no longer slow the game
+
+With the v0.4.5 memory fix, the Radeon 890M handheld ran Vulkan but reported
+under 30 FPS, slow-motion movement and stuttering audio. Both windows presented
+every guest frame and waited for the display. A presentation that blocks longer
+than a guest frame (a handheld or driver frame limiter, a display slower than
+the engine rate) therefore slowed the whole simulation, audio included.
+
+v0.4.6 drops the presentation of a frame that is already late and keeps the
+guest clock in real time; the picture still updates at least every 100 ms.
+With a simulated 33 ms presentation the native-rate game holds 0.99x on Vulkan
+and 0.98x on D3D11; with a simulated 60 Hz display at the 120 Hz engine rate it
+holds 0.95x. A device too slow to simulate the chosen engine rate is still
+limited by its CPU.
+
+The log now ends with a `[pacing]` line (speed, frames skipped, average game
+work and presentation time) and a `[settings]` line (resolution, render scale,
+engine rate, vsync, frame cap) to tell those cases apart.

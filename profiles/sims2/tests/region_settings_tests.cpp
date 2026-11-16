@@ -1,3 +1,4 @@
+#include "display/frame_pacing.hpp"
 #include "display/host_settings.hpp"
 #include <chrono>
 #include <cstdlib>
@@ -7,6 +8,29 @@
 int main() {
     using namespace sims2::display;
     try {
+        {
+            // A display that blocks must not slow the game: late frames are
+            // not presented, but the picture never stalls for long.
+            const auto fail = [](const char *why) { throw std::runtime_error(why); };
+            FramePacing on_time, late;
+            unsigned shown{};
+            std::uint64_t longest_gap{}, last_shown{};
+            for (std::uint64_t frame = 0; frame < 600; ++frame) {
+                const auto now_us = frame * 16683;
+                on_time.begin_frame(now_us);
+                if (on_time.skip_presentation(now_us, 1500)) fail("An on-time frame was not presented");
+                on_time.begin_presentation(); on_time.end_presentation(now_us); on_time.end_frame();
+                late.begin_frame(now_us);
+                if (!late.skip_presentation(now_us, 20000)) {
+                    late.begin_presentation(); late.end_presentation(now_us);
+                    longest_gap = std::max(longest_gap, now_us - last_shown); last_shown = now_us; ++shown;
+                }
+                late.end_frame();
+            }
+            if (on_time.skipped()) fail("On-time frames were skipped");
+            if (!late.skipped() || shown < 600 * 16683 / FramePacing::longest_gap_us - 1) fail("Late frames were not skipped while keeping the picture alive");
+            if (longest_gap > FramePacing::longest_gap_us + 16683) fail("The picture stalled while the host was late");
+        }
 #if defined(_WIN32)
         _putenv_s("SIMS2_SETTINGS_PATH", "");
 #else

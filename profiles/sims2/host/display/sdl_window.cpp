@@ -2,6 +2,7 @@
 #include "ctrl/host_input.hpp"
 #include "ctrl/native_gamepad.hpp"
 #include "display/native_window.hpp"
+#include "display/frame_pacing.hpp"
 #include "display/presentation_limiter.hpp"
 #include "display/settings_menu.hpp"
 #include "display/framebuffer_pixels.hpp"
@@ -14,6 +15,7 @@
 #include <chrono>
 #include <cstring>
 #include <fstream>
+#include <iostream>
 #include <thread>
 namespace sims2::display {
 namespace {
@@ -41,6 +43,10 @@ struct NativeWindow::Impl : SettingsMenu {
     bool vsync = true;
     std::uint64_t frames{}, presentations{}, first_us{};
     PresentationLimiter limiter;
+    FramePacing pacing;
+    std::uint64_t late_us{};
+    // Test hook: every game presentation blocks this long (a slow display or frame limiter).
+    unsigned test_present_delay_ms = [] { const auto *n = std::getenv("SIMS2_TEST_PRESENT_DELAY_MS"); return n ? unsigned(std::strtoul(n, nullptr, 10)) : 0u; }();
     std::chrono::steady_clock::time_point start{};
     std::vector<std::uint32_t> pixels = std::vector<std::uint32_t>(480 * 272);
     SDL_GPUTextureSamplerBinding binding{};
@@ -341,7 +347,15 @@ NativeWindow::NativeWindow(bool visible, gpu::NativeRenderer *renderer, bool hid
     check(p.linear, "Create linear output sampler");
     apply_settings(load_host_settings(p.settings_file));
 }
-NativeWindow::~NativeWindow() = default;
+NativeWindow::~NativeWindow() {
+    if (!impl_->paced)
+        return;
+    impl_->pacing.report(std::cerr);
+    const auto &s = impl_->current;
+    std::cerr << "[settings] width=" << s.width << " height=" << s.height << " render_scale=" << s.render_scale
+              << " render_percent=" << s.render_percent << " fps_cap=" << s.fps_cap << " engine_fps=" << s.engine_fps
+              << " vsync=" << s.vsync << '\n';
+}
 void *NativeWindow::native_handle() const noexcept { return impl_->window; }
 std::uint64_t NativeWindow::presented_frames() const noexcept { return impl_->presentations; }
 HostSettings NativeWindow::settings() const { return impl_->current; }
@@ -399,6 +413,8 @@ void NativeWindow::synchronize(std::uint64_t now_us) {
         p.first_us = now_us;
         p.reset_pacing = false;
     }
+    const auto deadline = p.start + std::chrono::microseconds(now_us - p.first_us);
+    p.late_us = now > deadline ? std::uint64_t(std::chrono::duration_cast<std::chrono::microseconds>(now - deadline).count()) : 0u;
     std::this_thread::sleep_until(p.start + std::chrono::microseconds(now_us - p.first_us));
 }
 bool NativeWindow::present(const psprecomp::GuestMemory &memory, const Display::Framebuffer &frame,
@@ -407,6 +423,7 @@ bool NativeWindow::present(const psprecomp::GuestMemory &memory, const Display::
     p.events();
     if (p.closed)
         return false;
+    p.pacing.begin_frame(now_us);
     auto pad = p.gamepad->sample(p.focused() && !p.opened);
     const bool *keys = SDL_GetKeyboardState(nullptr);
     auto key = [&](unsigned code) {
@@ -446,9 +463,17 @@ bool NativeWindow::present(const psprecomp::GuestMemory &memory, const Display::
         if (auto *path = std::getenv("SIMS2_CAPTURE_BMP"))
             capture(path);
     p.camera();
+    p.late_us = 0;
     synchronize(now_us);
     auto render = [&](bool game) {
+        if (game) {
+            p.pacing.begin_presentation();
+            if (p.test_present_delay_ms)
+                SDL_Delay(p.test_present_delay_ms);
+        }
         auto action = p.render(game, &memory, &frame);
+        if (game)
+            p.pacing.end_presentation(now_us);
         if (action.apply)
             apply_settings(action.settings);
         if (action.save) {
@@ -456,7 +481,9 @@ bool NativeWindow::present(const psprecomp::GuestMemory &memory, const Display::
             p.status = save_host_settings(p.settings_file, p.current, error) ? "Settings saved" : error;
         }
     };
-    if (p.opened || p.limiter.due(now_us, p.current.fps_cap))
+    // A presentation that would make a late frame later is dropped, so display
+    // waits never turn into slow motion and broken audio.
+    if (p.opened || (p.limiter.due(now_us, p.current.fps_cap) && !(p.paced && p.pacing.skip_presentation(now_us, p.late_us))))
         render(true);
     bool paused = p.opened;
     while (p.opened && !p.closed) {
@@ -473,6 +500,7 @@ bool NativeWindow::present(const psprecomp::GuestMemory &memory, const Display::
         p.host_input.release();
         p.reset_pacing = true;
     }
+    p.pacing.end_frame();
     return !p.closed;
 }
 std::optional<std::string> NativeWindow::select_savedata(std::uint32_t mode,
