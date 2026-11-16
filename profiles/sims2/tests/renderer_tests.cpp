@@ -154,8 +154,16 @@ int main(int argc,char **argv) {
         call.vertices[1].color = 0xFF0000FFu;
         transfers.draw(memory, call);
         BlockTransfer transfer{0x09000000u, 512, 0, 0, 0x09100000u, 512, 0, 0, 1, 1, 4};
+#if defined(SIMS2_VULKAN)
+        const auto submissions_before_transfer = transfers.gpu_submissions();
+#endif
         transfers.prepare_transfer(memory, transfer);
         require(transfers.framebuffer_readbacks() == 0, "Unrelated transfer flushed a framebuffer");
+#if defined(SIMS2_VULKAN)
+        // Gameplay issues dozens of unrelated copies per frame. Each one used to
+        // end the command buffer, which exhausted device memory on slower GPUs.
+        require(transfers.gpu_submissions() == submissions_before_transfer, "Unrelated transfer submitted GPU work");
+#endif
         transfer.source = 0x44100000u; transfer.source_x = 15; transfer.source_y = 25;
         transfers.prepare_transfer(memory, transfer);
         require(transfers.framebuffer_readbacks() == 1, "Aliased framebuffer source was not resolved");
@@ -237,7 +245,7 @@ int main(int argc,char **argv) {
             sprite.vertices[1].color=0xff0000ffu;
             failing.draw(recovered,sprite);
             bool reported=false;
-            try{failing.prepare_transfer(recovered,BlockTransfer{0x09000000u,512,0,0,0x09100000u,512,0,0,1,1,4});}
+            try{failing.flush(recovered);}
             catch(const std::exception &){reported=true;}
             require(reported,"Simulated submission failure was not reported");
             failing.draw(recovered,sprite);failing.flush(recovered);

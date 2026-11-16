@@ -33,6 +33,7 @@ public:
     // Opaque display copy: PSP framebuffer alpha remains available to the game.
     void *gpu_presentation(const psprecomp::GuestMemory &, std::uint32_t, unsigned, unsigned) const;
     std::array<unsigned,2> gpu_dimensions() const noexcept;
+    [[nodiscard]] std::uint64_t gpu_submissions() const noexcept;
 #endif
     ID3D11Device *device() const noexcept;
     ID3D11DeviceContext *context() const noexcept;

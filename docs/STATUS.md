@@ -295,3 +295,17 @@ failed submission and checks recovery; it crashed the previous renderer.
 This removes the driver fault. It does not explain why submission failed on the
 890M, which no local AMD GPU reproduces. The report stays open; the new log
 line names the Vulkan result. See [validation and limits](VULKAN_CRASHES.md).
+
+## v0.4.5 Vulkan device-memory exhaustion
+
+The 890M retest on v0.4.4 stopped with `vkQueueSubmit
+VK_ERROR_OUT_OF_DEVICE_MEMORY` instead of a driver fault. Every GE block
+transfer ended the current command buffer, and every submission cycled the
+32 MB staging arena and 16 MB vertex buffer, so a GPU that fell behind
+accumulated 48 MB per outstanding submission.
+
+v0.4.5 does not submit for transfers that touch no render target and cycles
+those buffers only when they wrap. The local integrated-GPU save-to-gameplay
+run drops from 74,569 to 3,604 submissions and from 4.4 GB to 175 MB of shared
+graphics memory, with an identical final frame. Not yet confirmed on the 890M.
+See [validation and limits](VULKAN_CRASHES.md).

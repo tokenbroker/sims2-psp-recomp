@@ -163,9 +163,11 @@ struct NativeRenderer::Impl {
     std::vector<std::uint32_t> converted_generation;
     std::vector<std::uint16_t> triangle_vertices;
     std::uint32_t conversion_generation{};
-    // One staging arena per in-flight backing allocation. SDL cycles the arena
-    // only at a submission boundary; draws within a command buffer use disjoint
-    // offsets. Per-draw transfer-buffer allocation causes driver churn on Windows.
+    // Staging arena and vertex buffer are filled front to back at disjoint
+    // offsets and keep filling across submissions. They are cycled only when
+    // they wrap. Cycling on every submission made SDL allocate a fresh 32 MB
+    // arena and 16 MB vertex buffer whenever the previous submission was still
+    // in flight; a slower GPU then ran out of device memory in vkQueueSubmit.
     SDL_GPUTransferBuffer *uploads{};
     unsigned upload_cursor{}, upload_capacity=32u*1024u*1024u;
     struct Upload { SDL_GPUTransferBuffer *buffer; unsigned offset; };
@@ -196,22 +198,26 @@ struct NativeRenderer::Impl {
     // Test hook: report the Nth submission as failed (SIMS2_TEST_FAIL_SUBMIT=N).
     unsigned fail_submit_at = [] { const auto *n = std::getenv("SIMS2_TEST_FAIL_SUBMIT"); return n ? unsigned(std::strtoul(n, nullptr, 10)) : 0u; }();
     unsigned submit_count{};
+    std::uint64_t submissions{};
     void submit() {
         // SDL owns the buffer from the moment submission is attempted, even when
         // it fails (lost device, out of memory). Forget it before reporting the
         // failure: recording into a buffer that is no longer recording faults
         // inside AMD's Vulkan driver (null read at 0x10) instead of erroring.
         auto *pending = std::exchange(commands, nullptr);
-        upload_cursor = 0;
-        vertex_cursor = 0;
         if (!pending)
             return;
+        ++submissions;
         bool ok = platform::native_call("SDL_SubmitGPUCommandBuffer", [&] { return SDL_SubmitGPUCommandBuffer(pending); });
-        if (fail_submit_at && ++submit_count == fail_submit_at) {
-            SDL_SetError("simulated submission failure");
+        if (simulated_failure())
             ok = false;
-        }
         require(ok, "Submit Vulkan commands");
+    }
+    bool simulated_failure() {
+        if (!fail_submit_at || ++submit_count != fail_submit_at)
+            return false;
+        SDL_SetError("simulated submission failure");
+        return true;
     }
     SDL_GPUTexture *texture(unsigned w, unsigned h, SDL_GPUTextureUsageFlags usage,
                             SDL_GPUTextureFormat format = SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM) {
@@ -231,7 +237,7 @@ struct NativeRenderer::Impl {
     Upload upload(const void *data, unsigned bytes) {
         const unsigned reserved=(bytes+255u)&~255u;
         if(reserved>upload_capacity)throw psprecomp::Error("Vulkan upload exceeds staging arena");
-        if(upload_cursor+reserved>upload_capacity)submit();
+        if(upload_cursor+reserved>upload_capacity){submit();upload_cursor=0;}
         if(!uploads) {
             SDL_GPUTransferBufferCreateInfo info{};
             info.usage=SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD;
@@ -317,7 +323,7 @@ struct NativeRenderer::Impl {
             quad[i].color={1,1,1,1};quad[i].extra[3]=1;
             quad[i].uv={i&1u?1.f:0.f,i&2u?1.f:0.f,1};
         }
-        if(vertex_cursor+sizeof(quad)>vertex_capacity)submit();
+        if(vertex_cursor+sizeof(quad)>vertex_capacity){submit();vertex_cursor=0;}
         const auto transfer=upload(quad.data(),sizeof(quad));
         auto *copy=platform::native_call("SDL_BeginGPUCopyPass", [&] { return SDL_BeginGPUCopyPass(cmd()); });
         require(copy, "Begin Vulkan presentation copy pass");
@@ -337,6 +343,7 @@ struct NativeRenderer::Impl {
         Parameters parameters{};parameters.textured=1;parameters.function=3;
         SDL_PushGPUFragmentUniformData(cmd(),0,&parameters,sizeof(parameters));
         platform::native_call("SDL_DrawGPUPrimitives", [&] { return SDL_DrawGPUPrimitives(pass,4,1,0,0); });platform::native_call("SDL_EndGPURenderPass", [&] { return SDL_EndGPURenderPass(pass); });
+        vertex_cursor+=sizeof(quad);
         submit();target.presentation_ready=true;
         return target.presentation;
     }
@@ -437,7 +444,7 @@ struct NativeRenderer::Impl {
 };
 NativeRenderer::NativeRenderer(bool) : impl_(std::make_unique<Impl>()) {
     auto &r = *impl_;
-    SDL_SetAppMetadata("The Sims 2 PSP Recomp", "0.4.4", "io.github.sims2psprecomp");
+    SDL_SetAppMetadata("The Sims 2 PSP Recomp", "0.4.5", "io.github.sims2psprecomp");
     if (std::getenv("SIMS2_GPU_DEBUG")) {
         SDL_SetLogOutputFunction(+[](void *, int, SDL_LogPriority, const char *message) {
             std::cerr << "[sdl-gpu] " << message << '\n';
@@ -485,7 +492,7 @@ NativeRenderer::NativeRenderer(bool) : impl_(std::make_unique<Impl>()) {
 }
 NativeRenderer::~NativeRenderer() {
     if(std::getenv("SIMS2_PROFILE"))std::cerr<<"[vulkan] cached_targets="<<impl_->targets.size()
-        <<" cached_textures="<<impl_->textures.size()<<" cached_pipelines="<<impl_->pipelines.size()<<'\n';
+        <<" cached_textures="<<impl_->textures.size()<<" cached_pipelines="<<impl_->pipelines.size()<<" submissions="<<impl_->submissions<<'\n';
 }
 void *NativeRenderer::gpu_device() const noexcept { return impl_->device; }
 std::array<unsigned, 2> NativeRenderer::gpu_dimensions() const noexcept {
@@ -511,6 +518,7 @@ void *NativeRenderer::gpu_presentation(const psprecomp::GuestMemory &memory, std
     return raw && t.snapshot.size() == size && !std::memcmp(raw, t.snapshot.data(), size) ? r.presentation(t) : nullptr;
 }
 std::uint64_t NativeRenderer::draws() const noexcept { return impl_->count; }
+std::uint64_t NativeRenderer::gpu_submissions() const noexcept { return impl_->submissions; }
 std::uint64_t NativeRenderer::framebuffer_readbacks() const noexcept { return impl_->flush_count; }
 NativeRenderer::ProfileStats NativeRenderer::profile_stats() const noexcept {
     return {impl_->draw_ns, impl_->flush_ns, impl_->vertex_ns};
@@ -587,6 +595,13 @@ void NativeRenderer::flush(psprecomp::GuestMemory &memory, const BlockTransfer *
         platform::native_call("SDL_EndGPUCopyPass", [&] { return SDL_EndGPUCopyPass(pass); });
         auto *fence = platform::native_call("SDL_SubmitGPUCommandBufferAndAcquireFence", [&] { return SDL_SubmitGPUCommandBufferAndAcquireFence(r.commands); });
         r.commands = nullptr;
+        ++r.submissions;
+        if (fence && r.simulated_failure()) {
+            // The work was really submitted: let it finish before dropping the fence.
+            SDL_WaitForGPUFences(r.device, true, &fence, 1);
+            SDL_ReleaseGPUFence(r.device, fence);
+            fence = nullptr;
+        }
         require(fence, "Submit Vulkan readback");
         require(platform::native_call("SDL_WaitForGPUFences", [&] { return SDL_WaitForGPUFences(r.device, true, &fence, 1); }), "Wait Vulkan readback");
         SDL_ReleaseGPUFence(r.device, fence);
@@ -619,7 +634,10 @@ void NativeRenderer::flush(psprecomp::GuestMemory &memory, const BlockTransfer *
         if (raw)
             t.snapshot.assign(raw, raw + size);
     }
-    r.submit();
+    // A block transfer only needs the targets it touches resolved. Submitting
+    // here as well split every frame into dozens of submissions during gameplay.
+    if (!transfer)
+        r.submit();
     r.flush_ns +=
         std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - start)
             .count();
@@ -934,8 +952,10 @@ void NativeRenderer::draw(psprecomp::GuestMemory &memory, const DrawCall &call) 
     unsigned bytes = unsigned(output.size() * sizeof(GpuVertex));
     if (bytes > r.vertex_capacity)
         throw psprecomp::Error("Vulkan GE draw exceeds vertex buffer");
-    if (r.vertex_cursor + bytes > r.vertex_capacity)
+    if (r.vertex_cursor + bytes > r.vertex_capacity) {
         r.submit();
+        r.vertex_cursor = 0;
+    }
     const auto transfer = r.upload(output.data(), bytes);
     auto *copy = platform::native_call("SDL_BeginGPUCopyPass", [&] { return SDL_BeginGPUCopyPass(r.cmd()); });
     require(copy, "Begin Vulkan copy pass");

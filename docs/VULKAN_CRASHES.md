@@ -103,3 +103,38 @@ The issue remains open pending a reporter retest with a build that contains
 these changes. Its `latest.log` should show the Vulkan result behind the failed
 submission. D3D11 remains the reporter-confirmed workaround;
 the release does not silently change a saved renderer preference.
+
+## v0.4.4 retest: device memory exhausted
+
+The reporter's v0.4.4 log no longer faults in the driver. It stops with
+`Submit Vulkan commands: vkQueueSubmit VK_ERROR_OUT_OF_DEVICE_MEMORY` right
+after the save loads, on the 890M at the 120 Hz engine rate.
+
+### Cause
+
+Two renderer behaviours combined:
+
+- Every GE block transfer ended the current command buffer, even when the
+  transfer touched no render target. Gameplay issues dozens of these per frame:
+  the local save-to-gameplay run made 74,569 submissions for 2,100 frames.
+- Every submission restarted the 32 MB staging arena and the 16 MB vertex buffer
+  at offset zero and asked SDL to cycle them. SDL allocates a new backing buffer
+  whenever the previous one is still referenced by a submission in flight.
+
+A GPU that falls behind therefore accumulates 48 MB per outstanding submission.
+On the local AMD integrated GPU the same run rose from about 250 MB to 1.4 GB
+dedicated plus 4.4 GB shared graphics memory when gameplay started. It did not
+fail locally; the 890M ran out.
+
+### Changes
+
+- A block transfer that touches no render target no longer submits.
+- The staging arena and vertex buffer keep filling across submissions and are
+  cycled only when they wrap.
+
+The same local run now makes 3,604 submissions and peaks at 168 MB dedicated
+plus 175 MB shared, with a byte-identical final frame and guest state. A 4x
+run with Vulkan validation layers reports no errors. The renderer test checks
+that an unrelated transfer does not submit.
+
+This has not been confirmed on the 890M.
