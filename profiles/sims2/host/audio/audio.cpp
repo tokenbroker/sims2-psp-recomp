@@ -104,6 +104,7 @@ Audio::Audio(kernel::EarlyKernel &kernel) : kernel_(&kernel) {
 }
 
 std::uint32_t Audio::enqueue(std::int32_t index, Channel &channel, std::uint32_t buffer) {
+    const bool continuous = channel.samples_output != 0u && channel.queued_until_us >= kernel_->now_us();
     if (sink_) {
         const bool mono = channel.format == kFormatMono;
         const std::uint32_t values = channel.sample_count * (mono ? 1u : 2u);
@@ -119,7 +120,7 @@ std::uint32_t Audio::enqueue(std::int32_t index, Channel &channel, std::uint32_t
                 for (std::uint32_t i = 0; i < values; ++i)
                     samples[i] = static_cast<std::int16_t>(memory.load16(buffer + i * 2u));
             }
-            sink_(index, samples, mono, channel.left_volume, channel.right_volume);
+            sink_(index, samples, mono, channel.left_volume, channel.right_volume, continuous);
         }
     }
     const std::uint64_t start = std::max(channel.queued_until_us, kernel_->now_us());

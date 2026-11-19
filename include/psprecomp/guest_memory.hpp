@@ -269,16 +269,38 @@ private:
 
     // Guest memory is little-endian, so on a little-endian host these are the
     // same bytes the previous per-byte assembly produced, in one access.
-    [[nodiscard]] PSPRECOMP_MEMORY_FAST_PATH static std::uint16_t read_le16(const std::uint8_t *source) noexcept {
-        std::uint16_t value{};
+    //
+    // MSVC builds the generated units at /O1, which does not enable intrinsics:
+    // a fixed-size std::memcpy there stays a real call into the C runtime, on
+    // every guest load and store. MSVC does not optimize on strict aliasing and
+    // its x64/ARM64 targets allow unaligned scalar access, so a direct access
+    // is one instruction at any optimization level.
+    template <typename T>
+    [[nodiscard]] PSPRECOMP_MEMORY_FAST_PATH static T read_raw(const std::uint8_t *source) noexcept {
+#if defined(_MSC_VER) && !defined(__clang__)
+        return *reinterpret_cast<const __unaligned T *>(source);
+#else
+        T value{};
         std::memcpy(&value, source, sizeof(value));
+        return value;
+#endif
+    }
+    template <typename T>
+    PSPRECOMP_MEMORY_FAST_PATH static void write_raw(std::uint8_t *destination, T value) noexcept {
+#if defined(_MSC_VER) && !defined(__clang__)
+        *reinterpret_cast<__unaligned T *>(destination) = value;
+#else
+        std::memcpy(destination, &value, sizeof(value));
+#endif
+    }
+    [[nodiscard]] PSPRECOMP_MEMORY_FAST_PATH static std::uint16_t read_le16(const std::uint8_t *source) noexcept {
+        auto value = read_raw<std::uint16_t>(source);
         if constexpr (std::endian::native == std::endian::big)
             value = static_cast<std::uint16_t>((value >> 8u) | (value << 8u));
         return value;
     }
     [[nodiscard]] PSPRECOMP_MEMORY_FAST_PATH static std::uint32_t read_le32(const std::uint8_t *source) noexcept {
-        std::uint32_t value{};
-        std::memcpy(&value, source, sizeof(value));
+        auto value = read_raw<std::uint32_t>(source);
         if constexpr (std::endian::native == std::endian::big)
             value = ((value >> 24u) & 0x000000FFu) | ((value >> 8u) & 0x0000FF00u) |
                     ((value << 8u) & 0x00FF0000u) | ((value << 24u) & 0xFF000000u);
@@ -287,13 +309,13 @@ private:
     PSPRECOMP_MEMORY_FAST_PATH static void write_le16(std::uint8_t *destination, std::uint16_t value) noexcept {
         if constexpr (std::endian::native == std::endian::big)
             value = static_cast<std::uint16_t>((value >> 8u) | (value << 8u));
-        std::memcpy(destination, &value, sizeof(value));
+        write_raw(destination, value);
     }
     PSPRECOMP_MEMORY_FAST_PATH static void write_le32(std::uint8_t *destination, std::uint32_t value) noexcept {
         if constexpr (std::endian::native == std::endian::big)
             value = ((value >> 24u) & 0x000000FFu) | ((value >> 8u) & 0x0000FF00u) |
                     ((value << 8u) & 0x00FF0000u) | ((value << 24u) & 0xFF000000u);
-        std::memcpy(destination, &value, sizeof(value));
+        write_raw(destination, value);
     }
 
     [[nodiscard]] std::uint8_t aot_load8_slow(std::uint32_t address) const;

@@ -49,8 +49,11 @@ public:
 
     // Receives each accepted block when it is queued: interleaved 16-bit
     // samples (mono or stereo) and the channel's volumes (0x8000 = unity).
+    // `continuous` is set when the block follows the previous one without a
+    // gap on the guest clock, so a host that finds its playback queue empty
+    // at that point has dropped out rather than reached a pause in the sound.
     using Sink = std::function<void(std::int32_t channel, std::span<const std::int16_t> samples, bool mono,
-                                    std::uint32_t left_volume, std::uint32_t right_volume)>;
+                                    std::uint32_t left_volume, std::uint32_t right_volume, bool continuous)>;
     void set_sink(Sink sink) { sink_ = std::move(sink); }
 
     [[nodiscard]] std::int32_t reserve(std::int32_t channel, std::uint32_t samples, std::uint32_t format);

@@ -251,10 +251,10 @@ int main(int argc, char **argv) {
         if ((std::getenv("SIMS2_WINDOW") || std::getenv("SIMS2_AUDIO")) && !std::getenv("SIMS2_MUTE")) {
             playback = std::make_unique<sims2::audio::NativeAudio>();
             if(window)window->set_audio_control([&](float gain){playback->set_gain(gain);});
-            audio.set_sink([&](auto channel, auto samples, auto mono, auto left, auto right) {
+            audio.set_sink([&](auto channel, auto samples, auto mono, auto left, auto right, bool continuous) {
                 // Queue the ready block before sleeping on the guest clock.
                 // Sleeping first can drain the last block while this one waits.
-                playback->play(channel, samples, mono, left, right);
+                playback->play(channel, samples, mono, left, right, continuous);
                 if (window) window->synchronize(kernel.now_us());
             });
         }

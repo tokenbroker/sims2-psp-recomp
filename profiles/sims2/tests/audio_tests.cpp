@@ -85,7 +85,7 @@ int main() {
         for (unsigned i = 0; i < values; ++i)
             runtime.memory().store16(kBuffer + i * 2u, static_cast<std::uint16_t>(i * 997u + 32768u));
         bool received = false;
-        audio.set_sink([&](auto index, auto samples, bool is_mono, auto left, auto right) {
+        audio.set_sink([&](auto index, auto samples, bool is_mono, auto left, auto right, bool) {
             require(index == 0 && is_mono == mono && samples.size() == values, "PCM layout changed");
             require(left == 0x4000u && right == 0x8000u, "PCM volumes changed");
             for (unsigned i = 0; i < values; ++i)

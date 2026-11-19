@@ -2,6 +2,7 @@
 #include "gpu/native_renderer.hpp"
 #include "gpu/texture_decode.hpp"
 #include "gpu/triangle_indices.hpp"
+#include "gpu/vertex_lighting.hpp"
 #include "psprecomp/common.hpp"
 #include "sims2_spirv.hpp"
 #include <SDL3/SDL.h>
@@ -13,6 +14,7 @@
 #include <cstring>
 #include <iostream>
 #include <map>
+#include <optional>
 #include <set>
 #include <tuple>
 #include <utility>
@@ -34,76 +36,6 @@ V4 multiply(const std::array<float, 16> &matrix, const V4 &v) {
 V4 rgba(std::uint32_t color) {
     return {float(color & 255) / 255, float((color >> 8) & 255) / 255, float((color >> 16) & 255) / 255,
             float(color >> 24) / 255};
-}
-// Per-vertex PSP lighting, adapted from Bigmission/Yakumo's MIT ge.vert.
-void light_vertex(const DrawCall &call, const Vertex &v, const V4 &world, V4 &color, V4 &extra) {
-    const auto &l = call.lighting;
-    const auto vertex = rgba(v.color);
-    const auto ambient =
-        call.has_vertex_color && (l.material_update & 1u) ? vertex : rgba(call.material_color);
-    const auto diffuse =
-        call.has_vertex_color && (l.material_update & 2u) ? vertex : rgba(l.material_diffuse);
-    const auto specular =
-        call.has_vertex_color && (l.material_update & 4u) ? vertex : rgba(l.material_specular);
-    const auto global = rgba(l.ambient_color), emissive = rgba(l.material_emissive);
-    const auto normalize = [](V4 vector) {
-        const auto length = std::sqrt(vector[0] * vector[0] + vector[1] * vector[1] + vector[2] * vector[2]);
-        if (length > 0)
-            for (unsigned i = 0; i < 3; ++i)
-                vector[i] /= length;
-        else
-            vector = {0, 0, 1, 0};
-        return vector;
-    };
-    const auto dot = [](const V4 &a, const V4 &b) { return a[0] * b[0] + a[1] * b[1] + a[2] * b[2]; };
-    auto normal = normalize(multiply(call.world, {v.normal[0], v.normal[1], v.normal[2], 0}));
-    if (l.reverse_normals)
-        for (unsigned i = 0; i < 3; ++i)
-            normal[i] = -normal[i];
-    V4 sum{}, shine{};
-    for (unsigned i = 0; i < 3; ++i)
-        sum[i] = emissive[i] + global[i] * ambient[i];
-    for (const auto &source : l.lights) {
-        if (!source.enabled)
-            continue;
-        V4 direction{source.position[0], source.position[1], source.position[2], 0};
-        float attenuation = 1;
-        if (source.type != 0) {
-            for (unsigned i = 0; i < 3; ++i)
-                direction[i] -= world[i];
-            const auto distance = std::sqrt(dot(direction, direction));
-            const auto &k = source.attenuation;
-            attenuation = std::clamp(
-                1.0f / std::max(k[0] + k[1] * distance + k[2] * distance * distance, 1e-20f), 0.0f, 1.0f);
-        }
-        direction = normalize(direction);
-        if (source.type == 2) {
-            const auto axis = normalize({source.direction[0], source.direction[1], source.direction[2], 0});
-            const auto angle = -dot(axis, direction);
-            attenuation *=
-                angle >= source.spot_cutoff ? std::pow(std::max(angle, 0.0f), source.spot_exponent) : 0;
-        }
-        const auto ndotl = dot(normal, direction);
-        auto lambert = std::max(ndotl, 0.0f);
-        if (source.kind == 2)
-            lambert = std::pow(lambert, l.specular_power);
-        const auto la = rgba(source.ambient), ld = rgba(source.diffuse), ls = rgba(source.specular);
-        auto half = direction;
-        half[2] += 1;
-        half = normalize(half);
-        const auto highlight = source.kind == 1 && ndotl >= 0
-                                   ? std::pow(std::max(dot(normal, half), 0.0f), l.specular_power)
-                                   : 0;
-        for (unsigned i = 0; i < 3; ++i) {
-            sum[i] += (la[i] * ambient[i] + ld[i] * diffuse[i] * lambert) * attenuation;
-            shine[i] += ls[i] * specular[i] * highlight * attenuation;
-        }
-    }
-    for (unsigned i = 0; i < 3; ++i) {
-        color[i] = std::clamp(sum[i] + (l.mode == 1 ? 0 : shine[i]), 0.0f, 1.0f);
-        extra[i] = l.mode == 1 ? std::clamp(shine[i], 0.0f, 1.0f) : 0;
-    }
-    color[3] = ambient[3] * float(l.ambient_alpha) / 255.0f;
 }
 std::uint32_t expand(std::uint32_t raw, unsigned format) {
     if (format == 3)
@@ -444,7 +376,7 @@ struct NativeRenderer::Impl {
 };
 NativeRenderer::NativeRenderer(bool) : impl_(std::make_unique<Impl>()) {
     auto &r = *impl_;
-    SDL_SetAppMetadata("The Sims 2 PSP Recomp", "0.4.6", "io.github.sims2psprecomp");
+    SDL_SetAppMetadata("The Sims 2 PSP Recomp", "0.4.7", "io.github.sims2psprecomp");
     if (std::getenv("SIMS2_GPU_DEBUG")) {
         SDL_SetLogOutputFunction(+[](void *, int, SDL_LogPriority, const char *message) {
             std::cerr << "[sdl-gpu] " << message << '\n';
@@ -690,6 +622,8 @@ void NativeRenderer::draw(psprecomp::GuestMemory &memory, const DrawCall &call) 
         std::fill(r.converted_generation.begin(), r.converted_generation.end(), 0);
         ++r.conversion_generation;
     }
+    std::optional<vertex_lighting::Lighting> lighting;
+    if (call.lighting_enabled && !call.clear_mode) lighting.emplace(call);
     auto convert = [&](const Vertex &v) {
         GpuVertex out{};
         auto p = v.position;
@@ -705,8 +639,8 @@ void NativeRenderer::draw(psprecomp::GuestMemory &memory, const DrawCall &call) 
         } else {
             const auto world = multiply(call.world, p), view = multiply(call.view, world),
                        clip = multiply(call.projection, view);
-            if (call.lighting_enabled && !call.clear_mode)
-                light_vertex(call, v, world, out.color, out.extra);
+            if (lighting)
+                lighting->apply(v, world, out.color, out.extra);
             const auto &vp = call.viewport;
             out.position = {
                 ((vp.x_offset - vp.offset_x) * 2 / width - 1) * clip[3] + clip[0] * vp.x_scale * 2 / width,

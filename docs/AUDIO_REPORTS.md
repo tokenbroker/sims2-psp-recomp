@@ -101,3 +101,29 @@ channel 4 changed from 165 to 183, and channel 5 stayed at 2. Backpressure waits
 changed from 972 to 241. The mixed channel result is a reason to describe this as
 a scheduling mitigation, not proof of an audible fix. Windows native audio tests
 and all 49 Linux host tests passed with the final source change.
+
+## Cutscene host cost and playback margin (v0.4.7)
+
+A later report described smooth gameplay with stutter and sound cuts in
+cutscenes on default settings. Profiling the opening story sequence showed the
+host falling behind there, not a decoder fault: see
+[STATUS](STATUS.md#v047-cutscene-stutter-and-sound-breaks). Two changes follow.
+
+The sequence costs about 40% less host time (guest memory access and CPU vertex
+lighting), with identical output.
+
+Playback keeps a fixed 100 ms margin. When a block arrives on an empty stream
+(a new sound, or the first block after a dropout) it is queued behind 100 ms of
+silence. The earlier rejected experiment padded on every drain and so inserted
+silence repeatedly. Here the margin is only re-established after a stream has
+actually run dry, and with it in place that stops recurring on stalls under
+100 ms. The cost is 100 ms of audio delay relative to the picture.
+
+`[audio] underruns=` replaces the empty-queue count as the dropout measure. It
+counts only blocks the game queued straight after the previous one on the
+guest clock that found the device queue empty, and sums the gap. It is printed
+in every log, not only with `SIMS2_PROFILE`. `SIMS2_TEST_AUDIO_MARGIN_MS`
+(0-1000) overrides the margin for comparisons; the launcher clears it.
+
+Measured on the desktop, with full and capped CPU, these remove the reported
+pattern. A physical handheld retest is still the confirmation.

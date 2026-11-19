@@ -328,3 +328,54 @@ limited by its CPU.
 The log now ends with a `[pacing]` line (speed, frames skipped, average game
 work and presentation time) and a `[settings]` line (resolution, render scale,
 engine rate, vsync, frame cap) to tell those cases apart.
+
+## v0.4.7 Cutscene stutter and sound breaks
+
+A player on default settings (D3D11, 4x, VSync, Native) reported smooth
+gameplay but stutter and cut-out sound in cutscenes. The opening desert story
+sequence reproduces it: on a Ryzen 7 9800X3D it cost 0.68-0.89 s of host time
+per second of game (gameplay afterwards: about 0.45), and in its heaviest ten
+seconds 343 of 534 frames ran over the 16.7 ms budget. A slower CPU falls
+behind there.
+
+A sampling profile of that sequence found three avoidable costs:
+
+- The generated game code is compiled at `/O1`, which does not enable compiler
+  intrinsics, so the 4-byte `memcpy` in every guest load and store stayed a real
+  call into the C runtime (about 13% of the game thread). MSVC builds now use a
+  direct unaligned access; other compilers keep `memcpy`.
+- CPU vertex lighting converted every material and light colour, and
+  normalized every directional light, once per vertex. Both renderers now share
+  one implementation that prepares those once per draw; the per-vertex
+  arithmetic is unchanged.
+- The D3D11 renderer read an environment variable on every draw.
+
+The sequence now costs 0.40-0.52 s per second of game, and 8 of those 534 frames
+run over budget. A 6,000-frame headless run is identical before and after:
+guest timeline, draw counts, GE commands and the final frame.
+
+Sound also broke on short host stalls because only one or two audio blocks
+(23-46 ms) were queued ahead of the device. Sound that starts on an empty
+stream is now placed behind a fixed 100 ms margin of silence, so a stall
+shorter than that drains the margin instead of the sound. No samples are
+dropped or stretched; audio is 100 ms later relative to the picture. The
+loading backpressure limit rises by the same 100 ms.
+
+The log now has an `[audio]` line counting real dropouts: blocks the game
+queued without a gap that found the playback queue already empty.
+
+Paced runs of the sequence (4,300 frames, Windows audio device, hidden window):
+
+| Build | CPU | Frames not shown | Speed | Dropouts |
+|---|---|---|---|---|
+| v0.4.6 | full | 882 | 0.985 | 237 empty-queue blocks |
+| v0.4.7, no margin | full | 173 | 1.000 | 1 (91 ms) |
+| v0.4.7 | full | 188 | 1.000 | 0 |
+| v0.4.6 | capped to 0.6 core | 1,229 | 0.891 | 422 empty-queue blocks |
+| v0.4.7, no margin | capped to 0.6 core | 295 | 0.990 | 36 (1.6 s total) |
+| v0.4.7 | capped to 0.6 core | 328 | 0.989 | 12 (0.5 s total) |
+
+v0.4.6 has no dropout counter; its empty-queue count is the older, looser
+measure. The CPU cap is a Windows job-object limit, a harsher, burstier stand-in
+for a handheld than a uniformly slower CPU. It is not a measurement on the
+reporter's device.
