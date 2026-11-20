@@ -8,6 +8,7 @@
 #include "gpu/texture_decode.hpp"
 #include "gpu/triangle_indices.hpp"
 #include "gpu/vertex_lighting.hpp"
+#include "gpu/parallel_vertices.hpp"
 #include "psprecomp/common.hpp"
 #include <algorithm>
 #include <cmath>
@@ -145,6 +146,7 @@ struct NativeRenderer::Impl {
     }
     unsigned vertex_capacity{}, vertex_cursor{}; std::uint64_t count{};
     std::vector<GpuVertex> output_vertices, converted_vertices;
+    ParallelVertices parallel;
     std::vector<std::uint32_t> converted_generation;
     std::vector<std::uint16_t> triangle_vertices;
     std::uint32_t conversion_generation{};
@@ -461,6 +463,15 @@ void NativeRenderer::draw(psprecomp::GuestMemory &memory, const DrawCall &call) 
         }
         return r.converted_vertices[i];
     };
+    // Convert large draws up front on several threads; the lazy path below
+    // then finds every vertex done. Small draws keep converting on demand.
+    if (call.vertices.size() >= ParallelVertices::kMinimumVertices)
+        r.parallel.run(call.vertices.size(), [&](std::size_t begin, std::size_t end) {
+            for (auto i = begin; i < end; ++i) {
+                r.converted_vertices[i] = convert(call.vertices[i]);
+                r.converted_generation[i] = r.conversion_generation;
+            }
+        });
     const auto count = call.indices.empty() ? call.vertices.size() : call.indices.size();
     const auto at = [&](std::size_t i) { return converted(primitive_vertex(call.indices, call.vertices.size(), i)); };
     auto topology = D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST;

@@ -379,3 +379,40 @@ v0.4.6 has no dropout counter; its empty-queue count is the older, looser
 measure. The CPU cap is a Windows job-object limit, a harsher, burstier stand-in
 for a handheld than a uniformly slower CPU. It is not a measurement on the
 reporter's device.
+
+## v0.4.8 Vulkan frames wait for the whole frame's GPU work
+
+A v0.4.7 log from the Radeon 890M handheld (Vulkan, 1280x720, 2x render
+scale) reported speed 0.78, 229 of 678 frames late, and 84 audio dropouts
+(8.9 s) over the boot movie, a save load and a heavy scene (91,359 draws, about
+135 per frame on average).
+
+The Vulkan renderer recorded every draw into one command buffer and submitted it
+only at the framebuffer readback that ends each frame, then waited on a fence.
+The GPU therefore started each frame only once the CPU had finished it, and the
+frame cost the CPU time plus the GPU time. In the opening story scene the
+readback took 30-37% of real time on Vulkan with the discrete GPU and 21-24%
+with the integrated one, against 3-5% on D3D11.
+
+- The Vulkan renderer now submits every 8 draws. The staging arena and vertex
+  buffer already keep filling across submissions (v0.4.5), so this allocates
+  nothing: peak GPU memory stays 187 MB dedicated and 217 MB shared on the
+  integrated GPU. `SIMS2_TEST_SUBMIT_DRAWS=0` restores one submission per frame
+  for measurement; the desktop launcher clears it.
+- Both renderers convert draws of 384 or more vertices on up to three worker
+  threads. Each vertex is converted on its own from read-only draw state, so the
+  result is identical; vertex conversion time falls by about a quarter. Smaller
+  cutoffs measured slower. `SIMS2_TEST_VERTEX_THREADS=0` converts on one thread.
+
+Opening story scene, 3,600 frames, visible off-screen window, paced:
+
+| GPU | Build | Readback, heaviest 10 s | Frames not shown | Speed | Dropouts |
+|---|---|---|---|---|---|
+| RX 6950 XT | v0.4.7 behaviour | 0.30 | 1,271 | 0.975 | 29 (380 ms) |
+| RX 6950 XT | v0.4.8 | 0.10 | 790 | 0.996 | 5 (59 ms) |
+| Integrated Radeon, 2 CU | v0.4.7 behaviour | 0.21 | 1,107 | 0.996 | 8 (69 ms) |
+| Integrated Radeon, 2 CU | v0.4.8 | 0.08 | 574 | 1.000 | 1 (6 ms) |
+
+"v0.4.7 behaviour" is the v0.4.8 build with both test hooks set to 0. A
+6,000-frame headless run on each backend is identical to v0.4.7: guest
+timeline, draw counts, GE commands and the final frame.

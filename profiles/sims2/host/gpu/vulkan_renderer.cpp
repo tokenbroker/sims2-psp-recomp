@@ -3,6 +3,7 @@
 #include "gpu/texture_decode.hpp"
 #include "gpu/triangle_indices.hpp"
 #include "gpu/vertex_lighting.hpp"
+#include "gpu/parallel_vertices.hpp"
 #include "psprecomp/common.hpp"
 #include "sims2_spirv.hpp"
 #include <SDL3/SDL.h>
@@ -92,6 +93,7 @@ struct NativeRenderer::Impl {
     std::uint64_t count{}, flush_count{}, draw_ns{}, flush_ns{}, vertex_ns{};
     float scale{1}, aspect_factor{1};
     std::vector<GpuVertex> output_vertices, converted_vertices;
+    ParallelVertices parallel;
     std::vector<std::uint32_t> converted_generation;
     std::vector<std::uint16_t> triangle_vertices;
     std::uint32_t conversion_generation{};
@@ -131,12 +133,23 @@ struct NativeRenderer::Impl {
     unsigned fail_submit_at = [] { const auto *n = std::getenv("SIMS2_TEST_FAIL_SUBMIT"); return n ? unsigned(std::strtoul(n, nullptr, 10)) : 0u; }();
     unsigned submit_count{};
     std::uint64_t submissions{};
+    // Draws recorded since the last submission. Recorded work only reaches the
+    // GPU when it is submitted; holding a whole frame until the framebuffer
+    // readback made the CPU wait for all of the frame's GPU work there, so the
+    // frame cost the sum of both instead of the longer of the two.
+    unsigned draws_since_submit{};
+    // Test hook: SIMS2_TEST_SUBMIT_DRAWS=0 restores one submission per frame.
+    unsigned submit_draws = [] {
+        const auto *n = std::getenv("SIMS2_TEST_SUBMIT_DRAWS");
+        return n ? unsigned(std::strtoul(n, nullptr, 10)) : 8u;
+    }();
     void submit() {
         // SDL owns the buffer from the moment submission is attempted, even when
         // it fails (lost device, out of memory). Forget it before reporting the
         // failure: recording into a buffer that is no longer recording faults
         // inside AMD's Vulkan driver (null read at 0x10) instead of erroring.
         auto *pending = std::exchange(commands, nullptr);
+        draws_since_submit = 0;
         if (!pending)
             return;
         ++submissions;
@@ -376,7 +389,7 @@ struct NativeRenderer::Impl {
 };
 NativeRenderer::NativeRenderer(bool) : impl_(std::make_unique<Impl>()) {
     auto &r = *impl_;
-    SDL_SetAppMetadata("The Sims 2 PSP Recomp", "0.4.7", "io.github.sims2psprecomp");
+    SDL_SetAppMetadata("The Sims 2 PSP Recomp", "0.4.8", "io.github.sims2psprecomp");
     if (std::getenv("SIMS2_GPU_DEBUG")) {
         SDL_SetLogOutputFunction(+[](void *, int, SDL_LogPriority, const char *message) {
             std::cerr << "[sdl-gpu] " << message << '\n';
@@ -685,6 +698,15 @@ void NativeRenderer::draw(psprecomp::GuestMemory &memory, const DrawCall &call) 
         }
         return r.converted_vertices[i];
     };
+    // Convert large draws up front on several threads; the lazy path below
+    // then finds every vertex done. Small draws keep converting on demand.
+    if (call.vertices.size() >= ParallelVertices::kMinimumVertices)
+        r.parallel.run(call.vertices.size(), [&](std::size_t begin, std::size_t end) {
+            for (auto i = begin; i < end; ++i) {
+                r.converted_vertices[i] = convert(call.vertices[i]);
+                r.converted_generation[i] = r.conversion_generation;
+            }
+        });
     const auto count = call.indices.empty() ? call.vertices.size() : call.indices.size();
     const auto at = [&](std::size_t i) {
         return converted(primitive_vertex(call.indices, call.vertices.size(), i));
@@ -940,6 +962,11 @@ void NativeRenderer::draw(psprecomp::GuestMemory &memory, const DrawCall &call) 
     target.dirty = true;
     target.presentation_ready=false;
     ++r.count;
+    // Start the GPU on this frame's work while the game records the rest.
+    // The staging arena and vertex buffer keep filling across submissions,
+    // so this allocates nothing.
+    if (r.submit_draws && ++r.draws_since_submit >= r.submit_draws)
+        r.submit();
     r.draw_ns +=
         std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - start)
             .count();
