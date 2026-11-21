@@ -49,6 +49,7 @@ struct NativeWindow::Impl : SettingsMenu {
     unsigned test_present_delay_ms = [] { const auto *n = std::getenv("SIMS2_TEST_PRESENT_DELAY_MS"); return n ? unsigned(std::strtoul(n, nullptr, 10)) : 0u; }();
     std::chrono::steady_clock::time_point start{};
     std::vector<std::uint32_t> pixels = std::vector<std::uint32_t>(480 * 272);
+    std::optional<Display::Framebuffer> shown;
     SDL_GPUTextureSamplerBinding binding{};
     std::optional<std::string> slot_choice;
     bool slot_open{}, slot_done{};
@@ -453,10 +454,8 @@ bool NativeWindow::present(const psprecomp::GuestMemory &memory, const Display::
     pad = p.host_input.sample(p.current.input, key, mouse, pad, p.focused() && !p.opened && !p.slot_open,
                               host_us);
     controller.set_pad(pad, now_us);
-    const auto bpp = frame.pixel_format == 3 ? 4u : 2u;
-    const auto bytes=std::size_t(frame.buffer_width)*272u*bpp;
-    const auto *source=memory.raw_pointer(frame.address,bytes);
-    if(source)convert_framebuffer_pixels({source,bytes},frame.buffer_width,480,272,frame.pixel_format,p.pixels);
+    p.shown = frame;
+    refresh_pixels(memory);
     ++p.frames;
     const auto *at = std::getenv("SIMS2_CAPTURE_FRAME");
     if (p.frames == (at ? std::strtoull(at, nullptr, 10) : 60))
@@ -525,6 +524,16 @@ std::optional<std::string> NativeWindow::select_savedata(std::uint32_t mode,
     p.suppress = true;
     p.reset_pacing = true;
     return p.slot_choice;
+}
+void NativeWindow::refresh_pixels(const psprecomp::GuestMemory &memory) {
+    auto &p = *impl_;
+    if (!p.shown)
+        return;
+    const auto &frame = *p.shown;
+    const auto bpp = frame.pixel_format == 3 ? 4u : 2u;
+    const auto bytes=std::size_t(frame.buffer_width)*272u*bpp;
+    const auto *source=memory.raw_pointer(frame.address,bytes);
+    if(source)convert_framebuffer_pixels({source,bytes},frame.buffer_width,480,272,frame.pixel_format,p.pixels);
 }
 void NativeWindow::capture(const std::string &path) const {
     const auto &pixels = impl_->pixels;

@@ -17,6 +17,8 @@ public:
         std::uint64_t now_us, ctrl::Controller &controller);
     std::optional<std::string> select_savedata(std::uint32_t mode, const std::vector<std::string> &slots);
     void capture(const std::string &path) const;
+    // Re-read the last presented framebuffer from guest memory for capture().
+    void refresh_pixels(const psprecomp::GuestMemory &memory);
     void apply_settings(HostSettings settings);
     HostSettings settings() const;
     std::uint64_t presented_frames() const noexcept;

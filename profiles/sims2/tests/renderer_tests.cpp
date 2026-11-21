@@ -178,6 +178,38 @@ int main(int argc,char **argv) {
         transfers.draw(memory, call); transfers.flush(memory);
         require(memory.load32(0x04100000u + (25u * 512u + 15u) * 4u) == 0xFF00FF00u, "GPU discarded transferred destination pixels");
         require(memory.load32(0x04100000u + (25u * 512u + 16u) * 4u) == 0xFF0000FFu, "Partial transfer lost neighboring GPU pixels");
+        // A frame's pixels may reach guest memory after the frame has ended.
+        // Pixels the game writes in the meantime stay on top, and the next
+        // draw into that buffer starts from them.
+        {
+            NativeRenderer late(true); late.set_render_scale(scale);
+            const auto pixel = [&](unsigned x, unsigned y) { return call.target.color_address + (y * 512u + x) * 4u; };
+            call.vertices[0].position = {100,100,0,1}; call.vertices[1].position = {120,120,0,1};
+            late.draw(memory, call);
+            late.flush_frame(memory, call.target.color_address, 512, 3);
+            memory.store32(pixel(105, 105), 0xFF123456u);
+            late.flush(memory);
+            require(memory.load32(pixel(105, 105)) == 0xFF123456u, "Late readback overwrote a pixel the game wrote");
+            require(memory.load32(pixel(106, 105)) == 0xFF0000FFu, "Late readback lost rendered pixels");
+            call.vertices[0].position = {140,100,0,1}; call.vertices[1].position = {150,120,0,1};
+            late.draw(memory, call);
+            late.flush_frame(memory, call.target.color_address, 512, 3);
+            late.flush(memory);
+            require(memory.load32(pixel(105, 105)) == 0xFF123456u, "Renderer dropped a pixel written during a readback");
+            require(memory.load32(pixel(106, 105)) == 0xFF0000FFu, "Earlier pixels were lost after a late readback");
+            require(memory.load32(pixel(145, 105)) == 0xFF0000FFu, "Draw after a late readback is missing");
+            // Two frames into the same buffer without a flush in between.
+            call.vertices[0].position = {160,100,0,1}; call.vertices[1].position = {170,120,0,1};
+            late.draw(memory, call);
+            late.flush_frame(memory, call.target.color_address, 512, 3);
+            call.vertices[0].position = {180,100,0,1}; call.vertices[1].position = {190,120,0,1};
+            late.draw(memory, call);
+            late.flush_frame(memory, call.target.color_address, 512, 3);
+            late.flush(memory);
+            require(memory.load32(pixel(165, 105)) == 0xFF0000FFu, "First of two late frames is missing");
+            require(memory.load32(pixel(185, 105)) == 0xFF0000FFu, "Second of two late frames is missing");
+            require(memory.load32(pixel(105, 105)) == 0xFF123456u, "Later frames dropped a pixel the game wrote");
+        }
         // Queue more than one streaming-buffer allocation without readbacks.
         // Every row must retain its own vertices across append and wraparound.
         NativeRenderer streaming(true); streaming.set_render_scale(scale);

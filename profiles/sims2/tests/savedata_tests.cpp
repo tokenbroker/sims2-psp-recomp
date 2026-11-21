@@ -185,6 +185,18 @@ void test_store() {
     check(load_save(root, files).status == LoadStatus::Ok && load_save(root, files).contents.data == contents.data,
         "a mode 3 save loads back");
     std::filesystem::remove_all(root);
+
+    // Directory creation errors must not leak the host memory-stick path.
+    const auto blocked = std::filesystem::temp_directory_path() / "sims2_savedata_tests_blocked";
+    std::filesystem::remove_all(blocked);
+    { std::ofstream blocker(blocked, std::ios::binary); blocker << "x"; }
+    std::string create_error;
+    const bool blocked_ok = write_save(blocked, files, contents, create_error);
+    std::filesystem::remove_all(blocked);
+    check(!blocked_ok && create_error.find("PSP/SAVEDATA/TEST00000SLOT") != std::string::npos &&
+            create_error.find(blocked.string()) == std::string::npos &&
+            create_error.find("sims2_savedata_tests_blocked") == std::string::npos,
+        "write_save errors omit the host memory-stick folder");
 }
 
 } // namespace

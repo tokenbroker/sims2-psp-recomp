@@ -170,7 +170,7 @@ bool write_save(const std::filesystem::path &memory_stick, const SaveFiles &file
     std::error_code ec;
     std::filesystem::create_directories(folder, ec);
     if (ec) {
-        error = "cannot create " + folder.string() + ": " + ec.message();
+        error = "cannot create PSP/SAVEDATA/" + files.game_name + files.save_name + ": " + ec.message();
         return false;
     }
 

@@ -141,7 +141,7 @@ struct Request {
     }
 
     std::string folder(const savedata::SaveFiles &files) const {
-        return savedata::save_folder(utility.memory_stick(), files).string();
+        return "PSP/SAVEDATA/" + files.game_name + files.save_name;
     }
 
     std::uint32_t load(const std::string &save_name) const {

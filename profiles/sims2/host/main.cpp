@@ -270,9 +270,13 @@ int main(int argc, char **argv) {
         std::string step_command;
         std::string last_live_command = "-";
         std::uint64_t step_end_frame{};
+        // A per-frame capture reads the frame's pixels from guest memory, so
+        // those runs wait for every frame's readback.
+        const bool capture_frames = std::getenv("SIMS2_CAPTURE_BMP") != nullptr;
         display.set_present_hook([&](const auto &frame) {
             const auto arrived = frame_csv.is_open() ? std::chrono::steady_clock::now() : std::chrono::steady_clock::time_point{};
-            renderer.flush(runtime->memory());
+            if (capture_frames) renderer.flush(runtime->memory());
+            else renderer.flush_frame(runtime->memory(), frame.address, frame.buffer_width, frame.pixel_format);
             if (window && !window->present(runtime->memory(), frame, kernel.now_us(), controller)) runtime->stop("Window closed");
             if (frame_csv.is_open()) {
                 const auto presented = std::chrono::steady_clock::now();
@@ -392,10 +396,22 @@ int main(int argc, char **argv) {
         // After a failed run the renderer may be the component that failed.
         // Do not issue further GPU work through it.
         if (execution_error.empty()) renderer.flush(runtime->memory());
-        if (window) if (const auto *path = std::getenv("SIMS2_CAPTURE_LAST_BMP")) window->capture(path);
+        if (window) if (const auto *path = std::getenv("SIMS2_CAPTURE_LAST_BMP")) {
+            // The flush above completed the last frame in guest memory.
+            if (execution_error.empty()) window->refresh_pixels(runtime->memory());
+            window->capture(path);
+        }
         if(timing_path){std::ofstream trace(timing_path);trace<<"{\"native_vblank_hz\":59.94005994,\"active_display_hz\":"<<sims2::kernel::guest_display_frequency()<<",\"calls\":[";bool first=true;
             for(const auto &[key,count]:timing_calls){if(!first)trace<<',';first=false;trace<<"{\"kind\":\""<<key.first<<"\",\"return_pc\":\""<<psprecomp::hex32(key.second)<<"\",\"count\":"<<count<<'}';}trace<<"]}\n";}
         std::cout << "GPU draws rendered: " << renderer.draws() << '\n';
+        // Where the renderer spent each frame's host time, for performance reports.
+        if (const auto frames = display.framebuffer_requests()) {
+            const auto stats = renderer.profile_stats();
+            std::cerr << "[renderer] draw_us_per_frame=" << stats.draw_ns / 1000 / frames
+                      << " readback_us_per_frame=" << stats.flush_ns / 1000 / frames
+                      << " gpu_wait_us_per_frame=" << stats.wait_ns / 1000 / frames
+                      << " readbacks=" << renderer.framebuffer_readbacks() << '\n';
+        }
 #endif
         std::cout << "PC: " << psprecomp::hex32(runtime->cpu().pc)
                   << "\nGuest time (us): " << kernel.now_us()

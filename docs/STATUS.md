@@ -416,3 +416,74 @@ Opening story scene, 3,600 frames, visible off-screen window, paced:
 "v0.4.7 behaviour" is the v0.4.8 build with both test hooks set to 0. A
 6,000-frame headless run on each backend is identical to v0.4.7: guest
 timeline, draw counts, GE commands and the final frame.
+
+## v0.4.9 Vulkan frames no longer wait for the GPU
+
+A v0.4.8 log from the same Radeon 890M handheld (Vulkan, 1280x720, 2x render
+scale, about 85 s of mostly gameplay) still reported speed 0.78: 2,111 of 3,114
+frames not shown, 246 audio dropouts (10.7 s) and 22.4 ms of work per frame
+against a 16.7 ms budget. The same machine runs D3D11 at full speed, so the
+cost is in the Vulkan path, not the CPU.
+
+At the end of every frame the Vulkan renderer copied the rendered framebuffer
+back to guest memory and stopped the game until the GPU had finished the whole
+frame. How long that takes depends on the GPU's scheduling and power state, not
+on how much there is to draw: on the development PC it measured about 1 ms per
+frame on an idle GPU and 6-10 ms per frame while the same GPU was busy with
+other work. The game does not need those pixels at that moment. A 3,114-frame
+USA run with the readback removed entirely executes the identical GE command
+stream.
+
+- **Readbacks no longer block the frame.** `NativeRenderer::flush_frame` submits
+  the frame with a copy of the target at PSP resolution and returns. The pixels
+  are copied into guest memory when the GPU has finished them, normally at the
+  next frame. The copy is completed at once, as before, when something uses
+  those pixels first: a block transfer that touches the buffer, a texture read
+  from it, the next draw into it, a render-scale change, a frame capture, or
+  `flush()`. A buffer drawn again before its previous copy arrived waits for
+  that copy, so the game never runs more than its buffers ahead of the GPU.
+- **Guest writes survive a late copy.** The renderer keeps what guest memory
+  held when the readback started and replaces only pixels that still hold that
+  value, so pixels the game writes in between stay on top, as they would have
+  after an immediate copy. One case differs: a pixel the game rewrites with the
+  value it already had takes the rendered value. Code that reads the framebuffer
+  directly from guest memory, without a transfer or a texture, sees a frame that
+  is one frame old until the copy arrives. The game's boot, story scene and
+  gameplay never do this.
+- **Consecutive draws share one upload and one render pass.** A pass per draw
+  switched the render target between its attachment and sampling layouts and
+  stalled for a vertex copy at every draw. Draws to the same target are now
+  queued and recorded together; anything that reads or replaces the target, or
+  submits, records them first.
+- **Fewer submissions.** The renderer submits every 32 draws instead of every 8.
+  With no wait at the end of the frame, extra submissions only add scheduling
+  round trips. A gameplay frame takes about 5 submissions instead of 15.
+- The exit log gains a `[renderer]` line with per-frame draw recording time,
+  readback time and time spent waiting for the GPU, on both backends.
+- `[savedata]` log lines and save errors name the slot as `PSP/SAVEDATA/...`
+  instead of the full host path, which included the user's home folder.
+
+Test hooks, cleared by the desktop launcher: `SIMS2_TEST_SYNC_READBACK=1` waits
+for every frame, `SIMS2_TEST_BATCH=0` records one pass per draw, and
+`SIMS2_TEST_SUBMIT_DRAWS` sets the submission interval. A run with
+`SIMS2_CAPTURE_BMP` waits for every frame, because a per-frame capture reads the
+frame from guest memory.
+
+USA boot, intro movie, save load and gameplay, 3,114 frames at the reporter's
+settings, visible off-screen window, paced, idle GPU:
+
+| GPU | Build | GPU wait per frame | Readback per frame | Late frames | Submissions |
+|---|---|---|---|---|---|
+| RX 6950 XT | v0.4.8 behaviour | 1,062 us | 1,140 us | 77 | 48,339 |
+| RX 6950 XT | v0.4.9 | 5 us | 106 us | 15 | 14,850 |
+| Integrated Radeon, 2 CU | v0.4.9 | 5 us | 104 us | 13 | 14,853 |
+
+"v0.4.8 behaviour" is the v0.4.9 build with the three hooks set. Peak GPU memory
+on the integrated GPU is unchanged (113 MB dedicated, 158 MB shared, against
+113 and 159). The final frame of that run is byte-identical with and without
+the hooks and on both GPUs. A 6,000-frame run of the European opening story
+scene matches the shipped v0.4.8 build exactly: per-frame guest timeline, draw
+counts, GE commands and the final frame, with work per frame falling from
+13.1 ms to 6.7 ms. These are measurements on a desktop with an idle GPU. They do
+not reproduce the handheld's slowdown, whose GPU wait the v0.4.8 log does not
+break out; the new `[renderer]` line does.

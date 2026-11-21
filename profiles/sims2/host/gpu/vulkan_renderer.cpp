@@ -90,7 +90,7 @@ struct NativeRenderer::Impl {
     SDL_GPUBuffer *vertices{};
     SDL_GPUCommandBuffer *commands{};
     unsigned vertex_cursor{}, vertex_capacity = 16 * 1024 * 1024, anisotropy{};
-    std::uint64_t count{}, flush_count{}, draw_ns{}, flush_ns{}, vertex_ns{};
+    std::uint64_t count{}, flush_count{}, draw_ns{}, flush_ns{}, vertex_ns{}, wait_ns{};
     float scale{1}, aspect_factor{1};
     std::vector<GpuVertex> output_vertices, converted_vertices;
     ParallelVertices parallel;
@@ -112,6 +112,13 @@ struct NativeRenderer::Impl {
         SDL_GPUTexture *color{}, *depth{}, *native{}, *presentation{};
         bool presentation_ready{};
         SDL_GPUTransferBuffer *readback{};
+        // Set while a readback has been submitted and its pixels are not in
+        // guest memory yet. snapshot then holds what guest memory held when
+        // the readback started.
+        SDL_GPUFence *fence{};
+        // The game wrote into this buffer while a readback was in flight, so
+        // guest memory, not the GPU copy, has the newest picture.
+        bool guest_modified{};
     };
     std::map<std::tuple<std::uint32_t, std::uint32_t, std::uint32_t>, Target> targets;
     std::map<std::uint64_t, SDL_GPUTexture *> textures;
@@ -134,16 +141,50 @@ struct NativeRenderer::Impl {
     unsigned submit_count{};
     std::uint64_t submissions{};
     // Draws recorded since the last submission. Recorded work only reaches the
-    // GPU when it is submitted; holding a whole frame until the framebuffer
-    // readback made the CPU wait for all of the frame's GPU work there, so the
-    // frame cost the sum of both instead of the longer of the two.
+    // GPU when it is submitted, so a few submissions inside the frame let the
+    // GPU work alongside the game. Each submission also costs a scheduling
+    // round trip, so they are kept to a handful per frame.
     unsigned draws_since_submit{};
-    // Test hook: SIMS2_TEST_SUBMIT_DRAWS=0 restores one submission per frame.
+    // Test hook: SIMS2_TEST_SUBMIT_DRAWS=0 submits once per frame.
     unsigned submit_draws = [] {
         const auto *n = std::getenv("SIMS2_TEST_SUBMIT_DRAWS");
-        return n ? unsigned(std::strtoul(n, nullptr, 10)) : 8u;
+        return n ? unsigned(std::strtoul(n, nullptr, 10)) : 32u;
     }();
+    // Consecutive draws to one target share one vertex upload and one render
+    // pass. A pass per draw made the GPU switch the target between its
+    // attachment and sampling layouts, and stall for the vertex copy, once
+    // for every draw of the frame.
+    struct PendingDraw {
+        SDL_GPUGraphicsPipeline *pipeline;
+        SDL_GPUTexture *image;
+        SDL_GPUSampler *sampler;
+        SDL_Rect scissor;
+        SDL_FColor constant;
+        Parameters params;
+        unsigned first, count;
+    };
+    Target *batch_target{};
+    unsigned batch_start{};
+    std::vector<GpuVertex> batch_vertices, batch_spare;
+    std::vector<PendingDraw> batch, batch_recording;
+    // Test hook: SIMS2_TEST_BATCH=0 records one render pass per draw.
+    bool batching = [] {
+        const auto *n = std::getenv("SIMS2_TEST_BATCH");
+        return !n || std::strcmp(n, "0") != 0;
+    }();
+    void end_batch();
+    // A frame's pixels are copied back to guest memory when the GPU has
+    // finished them, not by stopping the game until it has. Anything that
+    // reads those pixels first (a block transfer, a framebuffer texture, the
+    // next draw into the same buffer) completes the copy at that point.
+    // Test hook: SIMS2_TEST_SYNC_READBACK=1 waits for every frame again.
+    bool deferred_readback = std::getenv("SIMS2_TEST_SYNC_READBACK") == nullptr;
+    psprecomp::GuestMemory *frame_memory{};
+    void start_readback(Target &t, psprecomp::GuestMemory &memory);
+    void finish_readback(Target &t, psprecomp::GuestMemory &memory);
     void submit() {
+        // Queued draws belong to this submission.
+        end_batch();
         // SDL owns the buffer from the moment submission is attempted, even when
         // it fails (lost device, out of memory). Forget it before reporting the
         // failure: recording into a buffer that is no longer recording faults
@@ -230,6 +271,7 @@ struct NativeRenderer::Impl {
     SDL_GPUTexture *presentation(Target &target) {
         if(target.presentation_ready)return target.presentation;
         platform::NativeCallScope phase("vulkan-presentation");
+        end_batch();
         if(!target.presentation)
             target.presentation=texture(scaled_width(),scaled_height(),
                 SDL_GPU_TEXTUREUSAGE_COLOR_TARGET|SDL_GPU_TEXTUREUSAGE_SAMPLER);
@@ -319,13 +361,21 @@ struct NativeRenderer::Impl {
             require(pass, "Clear Vulkan depth");
             platform::native_call("SDL_EndGPURenderPass", [&] { return SDL_EndGPURenderPass(pass); });
         }
+        // Pixels still on their way back belong in guest memory before the
+        // game draws over this buffer again.
+        if (out.fence)
+            finish_readback(out, memory);
         if (out.upload) {
             const auto size = std::size_t(guest.color_stride) * height * (guest.color_format == 3 ? 4 : 2);
             const auto *raw = memory.raw_pointer(guest.color_address, size);
-            if (raw && out.snapshot.size() == size && !std::memcmp(raw, out.snapshot.data(), size)) {
+            if (raw && !out.guest_modified && out.snapshot.size() == size &&
+                !std::memcmp(raw, out.snapshot.data(), size)) {
                 out.upload = false;
                 return out;
             }
+            // The blit below replaces this target; draws queued for it land first.
+            if (batch_target == &out)
+                end_batch();
             std::vector<std::uint32_t> pixels(width * height);
             for (unsigned y = 0; y < height; ++y)
                 for (unsigned x = 0; x < std::min(width, guest.color_stride); ++x) {
@@ -337,6 +387,7 @@ struct NativeRenderer::Impl {
             upload_texture(out.native, pixels.data(), width, height);
             blit(out.native, out.color, width, height, scaled_width(), scaled_height());
             out.upload = false;
+            out.guest_modified = false;
         }
         return out;
     }
@@ -349,6 +400,7 @@ struct NativeRenderer::Impl {
             SDL_ReleaseGPUTexture(device, t.depth);
             SDL_ReleaseGPUTexture(device, t.native);
             if(t.readback)SDL_ReleaseGPUTransferBuffer(device,t.readback);
+            if(t.fence)SDL_ReleaseGPUFence(device,t.fence);
             if(t.presentation)SDL_ReleaseGPUTexture(device,t.presentation);
         }
         targets.clear();
@@ -361,6 +413,9 @@ struct NativeRenderer::Impl {
         }
         // Destruction must not throw, including after a lost device. Unsubmitted
         // work can be discarded here; normal flushes submit before destruction.
+        batch.clear();
+        batch_vertices.clear();
+        batch_target = nullptr;
         if(commands){SDL_CancelGPUCommandBuffer(commands);commands=nullptr;}
         platform::native_call("SDL_WaitForGPUIdle", [&] { return SDL_WaitForGPUIdle(device); });
         clear_targets(false);
@@ -387,9 +442,166 @@ struct NativeRenderer::Impl {
             SDL_QuitSubSystem(SDL_INIT_VIDEO);
     }
 };
+void NativeRenderer::Impl::end_batch() {
+    auto *target = std::exchange(batch_target, nullptr);
+    if (batch.empty())
+        return;
+    // Taken out before recording: uploading can submit, which ends the batch
+    // again, and a failed call must not replay these draws.
+    batch_recording.swap(batch);
+    batch_spare.swap(batch_vertices);
+    const auto &draws = batch_recording;
+    const auto bytes = unsigned(batch_spare.size() * sizeof(GpuVertex));
+    struct Clear {
+        Impl &r;
+        ~Clear() {
+            r.batch_recording.clear();
+            r.batch_spare.clear();
+        }
+    } clear{*this};
+    const auto transfer = upload(batch_spare.data(), bytes);
+    auto *copy = platform::native_call("SDL_BeginGPUCopyPass", [&] { return SDL_BeginGPUCopyPass(cmd()); });
+    require(copy, "Begin Vulkan copy pass");
+    SDL_GPUTransferBufferLocation src{transfer.buffer, transfer.offset};
+    SDL_GPUBufferRegion dst{vertices, batch_start, bytes};
+    platform::native_call("SDL_UploadToGPUBuffer", [&] { return SDL_UploadToGPUBuffer(copy, &src, &dst, batch_start == 0); });
+    platform::native_call("SDL_EndGPUCopyPass", [&] { return SDL_EndGPUCopyPass(copy); });
+    SDL_GPUColorTargetInfo color{};
+    color.texture = target->color;
+    color.load_op = SDL_GPU_LOADOP_LOAD;
+    color.store_op = SDL_GPU_STOREOP_STORE;
+    SDL_GPUDepthStencilTargetInfo depth{};
+    depth.texture = target->depth;
+    depth.load_op = SDL_GPU_LOADOP_LOAD;
+    depth.store_op = SDL_GPU_STOREOP_STORE;
+    depth.stencil_load_op = SDL_GPU_LOADOP_DONT_CARE;
+    depth.stencil_store_op = SDL_GPU_STOREOP_DONT_CARE;
+    auto *pass = platform::native_call("SDL_BeginGPURenderPass", [&] { return SDL_BeginGPURenderPass(cmd(), &color, 1, &depth); });
+    require(pass, "Begin Vulkan GE pass");
+    SDL_GPUViewport viewport{0, 0, float(scaled_width()), float(scaled_height()), 0, 1};
+    SDL_SetGPUViewport(pass, &viewport);
+    SDL_GPUBufferBinding binding{vertices, 0};
+    platform::native_call("SDL_BindGPUVertexBuffers", [&] { return SDL_BindGPUVertexBuffers(pass, 0, &binding, 1); });
+    SDL_GPUGraphicsPipeline *bound{};
+    for (const auto &d : draws) {
+        if (d.pipeline != bound) {
+            platform::native_call("SDL_BindGPUGraphicsPipeline", [&] { return SDL_BindGPUGraphicsPipeline(pass, d.pipeline); });
+            bound = d.pipeline;
+        }
+        SDL_SetGPUScissor(pass, &d.scissor);
+        SDL_SetGPUBlendConstants(pass, d.constant);
+        SDL_GPUTextureSamplerBinding sample{d.image, d.sampler};
+        platform::native_call("SDL_BindGPUFragmentSamplers", [&] { return SDL_BindGPUFragmentSamplers(pass, 0, &sample, 1); });
+        SDL_PushGPUFragmentUniformData(cmd(), 0, &d.params, sizeof(d.params));
+        platform::native_call("SDL_DrawGPUPrimitives", [&] { return SDL_DrawGPUPrimitives(pass, d.count, 1, d.first, 0); });
+    }
+    platform::native_call("SDL_EndGPURenderPass", [&] { return SDL_EndGPURenderPass(pass); });
+}
+// Submits everything recorded so far together with a copy of the target at
+// PSP resolution. The pixels reach guest memory in finish_readback.
+void NativeRenderer::Impl::start_readback(Target &t, psprecomp::GuestMemory &memory) {
+    blit(t.color, t.native, scaled_width(), scaled_height(), width, height);
+    if (!t.readback) {
+        SDL_GPUTransferBufferCreateInfo info{};
+        info.usage = SDL_GPU_TRANSFERBUFFERUSAGE_DOWNLOAD;
+        info.size = width * height * 4;
+        t.readback = platform::native_call("SDL_CreateGPUTransferBuffer", [&] { return SDL_CreateGPUTransferBuffer(device, &info); });
+    }
+    require(t.readback, "Create Vulkan readback");
+    auto *pass = platform::native_call("SDL_BeginGPUCopyPass", [&] { return SDL_BeginGPUCopyPass(cmd()); });
+    require(pass, "Begin Vulkan readback pass");
+    SDL_GPUTextureRegion src{};
+    src.texture = t.native;
+    src.w = width;
+    src.h = height;
+    src.d = 1;
+    SDL_GPUTextureTransferInfo dst{};
+    dst.transfer_buffer = t.readback;
+    dst.pixels_per_row = width;
+    dst.rows_per_layer = height;
+    platform::native_call("SDL_DownloadFromGPUTexture", [&] { return SDL_DownloadFromGPUTexture(pass, &src, &dst); });
+    platform::native_call("SDL_EndGPUCopyPass", [&] { return SDL_EndGPUCopyPass(pass); });
+    auto *fence = platform::native_call("SDL_SubmitGPUCommandBufferAndAcquireFence", [&] { return SDL_SubmitGPUCommandBufferAndAcquireFence(commands); });
+    commands = nullptr;
+    draws_since_submit = 0;
+    ++submissions;
+    if (fence && simulated_failure()) {
+        // The work was really submitted: let it finish before dropping the fence.
+        SDL_WaitForGPUFences(device, true, &fence, 1);
+        SDL_ReleaseGPUFence(device, fence);
+        fence = nullptr;
+    }
+    require(fence, "Submit Vulkan readback");
+    t.fence = fence;
+    t.dirty = false;
+    t.upload = true;
+    // What the game can see until the pixels arrive. finish_readback replaces
+    // only pixels that still hold these values, so anything the game writes
+    // in the meantime stays on top, as if the copy had happened here.
+    const auto size = std::size_t(t.guest.color_stride) * height * (t.guest.color_format == 3 ? 4 : 2);
+    if (const auto *raw = memory.raw_pointer(t.guest.color_address, size))
+        t.snapshot.assign(raw, raw + size);
+    else
+        t.snapshot.clear();
+}
+void NativeRenderer::Impl::finish_readback(Target &t, psprecomp::GuestMemory &memory) {
+    auto *fence = std::exchange(t.fence, nullptr);
+    const auto waiting = std::chrono::steady_clock::now();
+    const bool waited = platform::native_call("SDL_WaitForGPUFences", [&] { return SDL_WaitForGPUFences(device, true, &fence, 1); });
+    wait_ns += std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - waiting).count();
+    SDL_ReleaseGPUFence(device, fence);
+    require(waited, "Wait Vulkan readback");
+    auto *pixels =
+        static_cast<const std::uint32_t *>(platform::native_call("SDL_MapGPUTransferBuffer", [&] { return SDL_MapGPUTransferBuffer(device, t.readback, false); }));
+    require(pixels, "Map Vulkan readback");
+    const auto &g = t.guest;
+    const unsigned bytes_per_pixel = g.color_format == 3 ? 4u : 2u, columns = std::min(width, g.color_stride);
+    const auto size = std::size_t(g.color_stride) * height * bytes_per_pixel;
+    auto *raw = memory.raw_pointer(g.color_address, size);
+    bool kept_guest_pixels = false;
+    if (raw && t.snapshot.size() == size) {
+        const bool untouched = !std::memcmp(raw, t.snapshot.data(), size);
+        for (unsigned y = 0; y < height; ++y) {
+            auto *row = raw + std::size_t(y) * g.color_stride * bytes_per_pixel;
+            const auto *before = t.snapshot.data() + std::size_t(y) * g.color_stride * bytes_per_pixel;
+            if (untouched && bytes_per_pixel == 4) {
+                std::memcpy(row, pixels + y * width, columns * 4u);
+                continue;
+            }
+            for (unsigned x = 0; x < columns; ++x) {
+                auto *at = row + x * bytes_per_pixel;
+                if (!untouched && std::memcmp(at, before + x * bytes_per_pixel, bytes_per_pixel)) {
+                    kept_guest_pixels = true;
+                    continue;
+                }
+                if (bytes_per_pixel == 4) {
+                    std::memcpy(at, pixels + y * width + x, 4);
+                } else {
+                    const auto packed = pack(pixels[y * width + x], g.color_format);
+                    std::memcpy(at, &packed, 2);
+                }
+            }
+        }
+    } else {
+        for (unsigned y = 0; y < height; ++y)
+            for (unsigned x = 0; x < columns; ++x) {
+                const auto at = g.color_address + (y * g.color_stride + x) * bytes_per_pixel;
+                if (g.color_format == 3)
+                    memory.store32(at, pixels[y * width + x]);
+                else
+                    memory.store16(at, pack(pixels[y * width + x], g.color_format));
+            }
+        raw = memory.raw_pointer(g.color_address, size);
+    }
+    platform::native_call("SDL_UnmapGPUTransferBuffer", [&] { return SDL_UnmapGPUTransferBuffer(device, t.readback); });
+    ++flush_count;
+    t.guest_modified = kept_guest_pixels;
+    if (raw)
+        t.snapshot.assign(raw, raw + size);
+}
 NativeRenderer::NativeRenderer(bool) : impl_(std::make_unique<Impl>()) {
     auto &r = *impl_;
-    SDL_SetAppMetadata("The Sims 2 PSP Recomp", "0.4.8", "io.github.sims2psprecomp");
+    SDL_SetAppMetadata("The Sims 2 PSP Recomp", "0.4.9", "io.github.sims2psprecomp");
     if (std::getenv("SIMS2_GPU_DEBUG")) {
         SDL_SetLogOutputFunction(+[](void *, int, SDL_LogPriority, const char *message) {
             std::cerr << "[sdl-gpu] " << message << '\n';
@@ -456,7 +668,7 @@ void *NativeRenderer::gpu_presentation(const psprecomp::GuestMemory &memory, std
     if (it == r.targets.end())
         return nullptr;
     auto &t = it->second;
-    if (t.dirty)
+    if (t.dirty || t.guest_modified)
         return nullptr;
     const auto size = std::size_t(stride) * height * (format == 3 ? 4 : 2);
     auto *raw = memory.raw_pointer(address, size);
@@ -466,15 +678,18 @@ std::uint64_t NativeRenderer::draws() const noexcept { return impl_->count; }
 std::uint64_t NativeRenderer::gpu_submissions() const noexcept { return impl_->submissions; }
 std::uint64_t NativeRenderer::framebuffer_readbacks() const noexcept { return impl_->flush_count; }
 NativeRenderer::ProfileStats NativeRenderer::profile_stats() const noexcept {
-    return {impl_->draw_ns, impl_->flush_ns, impl_->vertex_ns};
+    return {impl_->draw_ns, impl_->flush_ns, impl_->vertex_ns, impl_->wait_ns};
 }
 void NativeRenderer::set_render_scale(float scale) {
     if (!std::isfinite(scale) || scale < .5f || scale > 16)
         throw psprecomp::Error("Render scale must be between 0.5 and 16");
     if (scale != impl_->scale) {
-        for (const auto &[key, t] : impl_->targets)
+        for (auto &[key, t] : impl_->targets) {
             if (t.dirty)
                 throw psprecomp::Error("Flush framebuffers before changing render scale");
+            if (t.fence && impl_->frame_memory)
+                impl_->finish_readback(t, *impl_->frame_memory);
+        }
         impl_->clear_targets();
         impl_->scale = scale;
     }
@@ -499,7 +714,7 @@ void NativeRenderer::flush(psprecomp::GuestMemory &memory, const BlockTransfer *
     platform::NativeCallScope phase("vulkan-flush");
     auto start = std::chrono::steady_clock::now();
     for (auto &[key, t] : r.targets) {
-        if (!t.dirty)
+        if (!t.dirty && !t.fence)
             continue;
         if (transfer && transfer->width && transfer->height) {
             const std::uint64_t begin = t.guest.color_address & 0x0fffffffu,
@@ -518,71 +733,59 @@ void NativeRenderer::flush(psprecomp::GuestMemory &memory, const BlockTransfer *
                           transfer->destination_y))
                 continue;
         }
-        r.blit(t.color, t.native, r.scaled_width(), r.scaled_height(), width, height);
-        SDL_GPUTransferBufferCreateInfo info{};
-        info.usage = SDL_GPU_TRANSFERBUFFERUSAGE_DOWNLOAD;
-        info.size = width * height * 4;
-        if(!t.readback)t.readback=platform::native_call("SDL_CreateGPUTransferBuffer", [&] { return SDL_CreateGPUTransferBuffer(r.device,&info); });
-        auto *download = t.readback;
-        require(download, "Create Vulkan readback");
-        auto *pass = platform::native_call("SDL_BeginGPUCopyPass", [&] { return SDL_BeginGPUCopyPass(r.cmd()); });
-        require(pass, "Begin Vulkan readback pass");
-        SDL_GPUTextureRegion src{};
-        src.texture = t.native;
-        src.w = width;
-        src.h = height;
-        src.d = 1;
-        SDL_GPUTextureTransferInfo dst{};
-        dst.transfer_buffer = download;
-        dst.pixels_per_row = width;
-        dst.rows_per_layer = height;
-        platform::native_call("SDL_DownloadFromGPUTexture", [&] { return SDL_DownloadFromGPUTexture(pass, &src, &dst); });
-        platform::native_call("SDL_EndGPUCopyPass", [&] { return SDL_EndGPUCopyPass(pass); });
-        auto *fence = platform::native_call("SDL_SubmitGPUCommandBufferAndAcquireFence", [&] { return SDL_SubmitGPUCommandBufferAndAcquireFence(r.commands); });
-        r.commands = nullptr;
-        ++r.submissions;
-        if (fence && r.simulated_failure()) {
-            // The work was really submitted: let it finish before dropping the fence.
-            SDL_WaitForGPUFences(r.device, true, &fence, 1);
-            SDL_ReleaseGPUFence(r.device, fence);
-            fence = nullptr;
+        if (t.dirty) {
+            if (t.fence)
+                r.finish_readback(t, memory);
+            if (r.batch_target == &t)
+                r.end_batch();
+            r.start_readback(t, memory);
         }
-        require(fence, "Submit Vulkan readback");
-        require(platform::native_call("SDL_WaitForGPUFences", [&] { return SDL_WaitForGPUFences(r.device, true, &fence, 1); }), "Wait Vulkan readback");
-        SDL_ReleaseGPUFence(r.device, fence);
-        auto *pixels =
-            static_cast<const std::uint32_t *>(platform::native_call("SDL_MapGPUTransferBuffer", [&] { return SDL_MapGPUTransferBuffer(r.device, download, false); }));
-        require(pixels, "Map Vulkan readback");
-        const auto &g = t.guest;
-        auto *destination=memory.raw_pointer(g.color_address,std::size_t(g.color_stride)*height*(g.color_format==3?4u:2u));
-        for (unsigned y = 0; y < height; ++y)
-        {
-            if(g.color_format==3 && destination) {
-                std::memcpy(destination+std::size_t(y)*g.color_stride*4u,pixels+y*width,
-                            std::min(width,g.color_stride)*4u);
-                continue;
-            }
-            for (unsigned x = 0; x < std::min(width, g.color_stride); ++x) {
-                auto at = g.color_address + (y * g.color_stride + x) * (g.color_format == 3 ? 4 : 2);
-                if (g.color_format == 3)
-                    memory.store32(at, pixels[y * width + x]);
-                else
-                    memory.store16(at, pack(pixels[y * width + x], g.color_format));
-            }
-        }
-        platform::native_call("SDL_UnmapGPUTransferBuffer", [&] { return SDL_UnmapGPUTransferBuffer(r.device, download); });
-        ++r.flush_count;
-        t.dirty = false;
-        t.upload = true;
-        const auto size = std::size_t(g.color_stride) * height * (g.color_format == 3 ? 4 : 2);
-        auto *raw = memory.raw_pointer(g.color_address, size);
-        if (raw)
-            t.snapshot.assign(raw, raw + size);
+        r.finish_readback(t, memory);
     }
     // A block transfer only needs the targets it touches resolved. Submitting
     // here as well split every frame into dozens of submissions during gameplay.
     if (!transfer)
         r.submit();
+    r.flush_ns +=
+        std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - start)
+            .count();
+}
+void NativeRenderer::flush_frame(psprecomp::GuestMemory &memory, std::uint32_t address, unsigned stride,
+                                 unsigned format) {
+    auto &r = *impl_;
+    r.frame_memory = &memory;
+    if (!r.deferred_readback) {
+        flush(memory, nullptr);
+        return;
+    }
+    platform::NativeCallScope phase("vulkan-flush");
+    auto start = std::chrono::steady_clock::now();
+    const std::tuple<std::uint32_t, std::uint32_t, std::uint32_t> shown{address, stride, format};
+    const std::uint64_t shown_begin = address & 0x0fffffffu,
+                        shown_end = shown_begin + std::uint64_t(stride) * height * (format == 3 ? 4 : 2);
+    for (auto &[key, t] : r.targets) {
+        // Earlier frames arrive here once the GPU has finished them. A buffer
+        // drawn again before its last copy arrived waits for that copy, which
+        // also keeps the game from running further ahead of a slow GPU.
+        if (t.fence && (t.dirty || SDL_QueryGPUFence(r.device, t.fence)))
+            r.finish_readback(t, memory);
+        if (t.dirty) {
+            if (r.batch_target == &t)
+                r.end_batch();
+            r.start_readback(t, memory);
+        }
+        if (!t.fence || key == shown)
+            continue;
+        // The window shows the displayed buffer from its GPU copy. Any other
+        // buffer sharing that memory is shown from guest memory, so its pixels
+        // have to be there now.
+        const std::uint64_t begin = t.guest.color_address & 0x0fffffffu,
+                            end = begin + std::uint64_t(t.guest.color_stride) * height *
+                                              (t.guest.color_format == 3 ? 4 : 2);
+        if (begin < shown_end && shown_begin < end)
+            r.finish_readback(t, memory);
+    }
+    r.submit();
     r.flush_ns +=
         std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - start)
             .count();
@@ -601,7 +804,7 @@ void NativeRenderer::draw(psprecomp::GuestMemory &memory, const DrawCall &call) 
         for (const auto &[key, t] : r.targets) {
             auto begin = t.guest.color_address & 0x0fffffffu;
             auto size = t.guest.color_stride * height * (t.guest.color_format == 3 ? 4 : 2);
-            feedback |= t.dirty && a >= begin && a - begin < size;
+            feedback |= (t.dirty || t.fence) && a >= begin && a - begin < size;
         }
         if (feedback)
             flush(memory);
@@ -912,28 +1115,6 @@ void NativeRenderer::draw(psprecomp::GuestMemory &memory, const DrawCall &call) 
         r.submit();
         r.vertex_cursor = 0;
     }
-    const auto transfer = r.upload(output.data(), bytes);
-    auto *copy = platform::native_call("SDL_BeginGPUCopyPass", [&] { return SDL_BeginGPUCopyPass(r.cmd()); });
-    require(copy, "Begin Vulkan copy pass");
-    SDL_GPUTransferBufferLocation src{transfer.buffer, transfer.offset};
-    SDL_GPUBufferRegion dst{r.vertices, r.vertex_cursor, bytes};
-    platform::native_call("SDL_UploadToGPUBuffer", [&] { return SDL_UploadToGPUBuffer(copy, &src, &dst, r.vertex_cursor == 0); });
-    platform::native_call("SDL_EndGPUCopyPass", [&] { return SDL_EndGPUCopyPass(copy); });
-    SDL_GPUColorTargetInfo color{};
-    color.texture = target.color;
-    color.load_op = SDL_GPU_LOADOP_LOAD;
-    color.store_op = SDL_GPU_STOREOP_STORE;
-    SDL_GPUDepthStencilTargetInfo depth{};
-    depth.texture = target.depth;
-    depth.load_op = SDL_GPU_LOADOP_LOAD;
-    depth.store_op = SDL_GPU_STOREOP_STORE;
-    depth.stencil_load_op = SDL_GPU_LOADOP_DONT_CARE;
-    depth.stencil_store_op = SDL_GPU_STOREOP_DONT_CARE;
-    auto *pass = platform::native_call("SDL_BeginGPURenderPass", [&] { return SDL_BeginGPURenderPass(r.cmd(), &color, 1, &depth); });
-    require(pass, "Begin Vulkan GE pass");
-    platform::native_call("SDL_BindGPUGraphicsPipeline", [&] { return SDL_BindGPUGraphicsPipeline(pass, pipeline); });
-    SDL_GPUViewport viewport{0, 0, float(r.scaled_width()), float(r.scaled_height()), 0, 1};
-    SDL_SetGPUViewport(pass, &viewport);
     const auto horizontal = [&](float x) {
         return match_aspect && hud ? (x - 240) * std::min(1.f, r.aspect_factor) + 240 : x;
     };
@@ -949,15 +1130,16 @@ void NativeRenderer::draw(psprecomp::GuestMemory &memory, const DrawCall &call) 
     int y2 = std::clamp(int(std::ceil(vertical(float(call.viewport.scissor_y2 + 1)) * r.scale)), y1,
                         int(r.scaled_height()));
     SDL_Rect scissor{x1, y1, x2 - x1, y2 - y1};
-    SDL_SetGPUScissor(pass, &scissor);
-    SDL_SetGPUBlendConstants(pass, constant);
-    SDL_GPUBufferBinding binding{r.vertices, r.vertex_cursor};
-    platform::native_call("SDL_BindGPUVertexBuffers", [&] { return SDL_BindGPUVertexBuffers(pass, 0, &binding, 1); });
-    SDL_GPUTextureSamplerBinding sample{image, sampler};
-    platform::native_call("SDL_BindGPUFragmentSamplers", [&] { return SDL_BindGPUFragmentSamplers(pass, 0, &sample, 1); });
-    SDL_PushGPUFragmentUniformData(r.cmd(), 0, &params, sizeof(params));
-    platform::native_call("SDL_DrawGPUPrimitives", [&] { return SDL_DrawGPUPrimitives(pass, unsigned(output.size()), 1, 0, 0); });
-    platform::native_call("SDL_EndGPURenderPass", [&] { return SDL_EndGPURenderPass(pass); });
+    if (r.batch_target != &target)
+        r.end_batch();
+    if (r.batch.empty())
+        r.batch_start = r.vertex_cursor;
+    r.batch_target = &target;
+    r.batch_vertices.insert(r.batch_vertices.end(), output.begin(), output.end());
+    r.batch.push_back({pipeline, image, sampler, scissor, constant, params,
+                       unsigned(r.vertex_cursor / sizeof(GpuVertex)), unsigned(output.size())});
+    if (!r.batching)
+        r.end_batch();
     r.vertex_cursor += bytes;
     target.dirty = true;
     target.presentation_ready=false;

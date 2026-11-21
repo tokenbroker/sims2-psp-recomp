@@ -177,6 +177,8 @@ NativeWindow::~NativeWindow() {
     if (impl_->window) DestroyWindow(impl_->window);
 }
 void *NativeWindow::native_handle() const noexcept { return impl_->window; }
+// The D3D11 renderer completes every frame in guest memory before present().
+void NativeWindow::refresh_pixels(const psprecomp::GuestMemory &) {}
 std::uint64_t NativeWindow::presented_frames() const noexcept{return impl_->overlay?impl_->overlay->presented_frames():0;}
 HostSettings NativeWindow::settings() const { return impl_->settings; }
 void NativeWindow::set_audio_control(std::function<void(float)> control) {

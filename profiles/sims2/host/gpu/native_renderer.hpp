@@ -12,11 +12,18 @@ public:
     explicit NativeRenderer(bool warp = false);
     ~NativeRenderer();
     void draw(psprecomp::GuestMemory &memory, const DrawCall &call);
+    // Writes every rendered framebuffer back to guest memory before returning.
     void flush(psprecomp::GuestMemory &memory);
+    // End of a game frame that displays the given framebuffer. Rendered pixels
+    // may reach guest memory after this returns (Vulkan); they are complete
+    // before a transfer, a framebuffer texture or a later draw uses them, and
+    // after flush().
+    void flush_frame(psprecomp::GuestMemory &memory, std::uint32_t address, unsigned stride, unsigned format);
     // Resolve only GPU targets read or partially overwritten by this transfer.
     void prepare_transfer(psprecomp::GuestMemory &memory, const BlockTransfer &transfer);
     [[nodiscard]] std::uint64_t framebuffer_readbacks() const noexcept;
-    struct ProfileStats { std::uint64_t draw_ns, flush_ns, vertex_ns; };
+    // wait_ns: time blocked until the GPU finished a readback (Vulkan).
+    struct ProfileStats { std::uint64_t draw_ns, flush_ns, vertex_ns, wait_ns; };
     [[nodiscard]] ProfileStats profile_stats() const noexcept;
     [[nodiscard]] std::uint64_t draws() const noexcept;
     void set_render_scale(float scale);

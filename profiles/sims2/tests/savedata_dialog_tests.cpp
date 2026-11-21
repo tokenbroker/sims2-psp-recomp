@@ -8,6 +8,7 @@
 #include <fstream>
 #include <iostream>
 #include <iterator>
+#include <sstream>
 #include <string>
 
 namespace {
@@ -83,9 +84,13 @@ int run_tests() {
     require(memory.load32(kMsFree) == 0x8000u && memory.load32(kMsData + 36u) == 0u && memory.load32(kNeeded) == 1u,
             "SIZES outputs");
 
+    std::ostringstream savedata_log;
+    auto *const old_cerr = std::cerr.rdbuf(savedata_log.rdbuf());
     prepare(memory, 1u);
     for (std::uint32_t i = 0; i < kDataSize; ++i) memory.store8(kData + i, static_cast<std::uint8_t>(i * 13u));
-    require(run(runtime, 1u, true) == savedata_result::kOk, "AUTOSAVE");
+    const auto autosave_result = run(runtime, 1u, true);
+    std::cerr.rdbuf(old_cerr);
+    require(autosave_result == savedata_result::kOk, "AUTOSAVE");
     const auto folder = stick / "PSP" / "SAVEDATA" / "UCJS10060MAIN";
     std::vector<std::uint8_t> sfo_bytes;
     {
@@ -99,7 +104,15 @@ int run_tests() {
             "the save is written in PSP layout, encrypted in mode 3");
 
     memory.zero(kData, kDataSize);
-    require(run(runtime, 0u) == savedata_result::kOk, "AUTOLOAD");
+    std::cerr.rdbuf(savedata_log.rdbuf());
+    const auto autoload_result = run(runtime, 0u);
+    std::cerr.rdbuf(old_cerr);
+    require(autoload_result == savedata_result::kOk, "AUTOLOAD");
+    const std::string log_text = savedata_log.str();
+    require(log_text.find("PSP/SAVEDATA/UCJS10060MAIN") != std::string::npos &&
+                log_text.find(stick.string()) == std::string::npos &&
+                log_text.find("sims2_savedata_dialog_tests") == std::string::npos,
+            "savedata logs use relative PSP paths without leaking host folders");
     bool restored = memory.load32(kParams + 0x7Cu) == kDataSize;
     for (std::uint32_t i = 0; i < kDataSize && restored; ++i) restored = memory.load8(kData + i) == static_cast<std::uint8_t>(i * 13u);
     require(restored, "AUTOLOAD restores the saved bytes");

@@ -301,16 +301,19 @@ std::uint64_t NativeRenderer::framebuffer_readbacks() const noexcept { return im
 ID3D11Device *NativeRenderer::device() const noexcept { return impl_->device.Get(); }
 ID3D11DeviceContext *NativeRenderer::context() const noexcept { return impl_->context.Get(); }
 NativeRenderer::ProfileStats NativeRenderer::profile_stats() const noexcept {
-    return {impl_->draw_ns, impl_->flush_ns, impl_->vertex_ns};
+    return {impl_->draw_ns, impl_->flush_ns, impl_->vertex_ns, 0};
 }
 void NativeRenderer::flush(psprecomp::GuestMemory &memory) {
+    flush(memory, nullptr);
+}
+void NativeRenderer::flush_frame(psprecomp::GuestMemory &memory, std::uint32_t, unsigned, unsigned) {
     flush(memory, nullptr);
 }
 void NativeRenderer::prepare_transfer(psprecomp::GuestMemory &memory, const BlockTransfer &transfer) {
     flush(memory, &transfer);
 }
 void NativeRenderer::flush(psprecomp::GuestMemory &memory, const BlockTransfer *transfer) {
-    auto &r = *impl_; ProfileScope timer(r.flush_ns, r.profile);
+    auto &r = *impl_; ProfileScope timer(r.flush_ns, true);
     bool unbound = false;
     for (auto &[key, target] : r.targets) {
         if (!target.dirty) continue;
@@ -355,7 +358,7 @@ void NativeRenderer::flush(psprecomp::GuestMemory &memory, const BlockTransfer *
     }
 }
 void NativeRenderer::draw(psprecomp::GuestMemory &memory, const DrawCall &call) {
-    ProfileScope timer(impl_->draw_ns, impl_->profile);
+    ProfileScope timer(impl_->draw_ns, true);
     if (call.vertices.empty()) return;
     if (call.stencil.test_enabled && !call.clear_mode)
         throw psprecomp::Error("PSP framebuffer-alpha stencil testing is not implemented in the D3D11 backend");
