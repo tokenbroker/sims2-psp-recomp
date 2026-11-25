@@ -41,6 +41,17 @@
 #include <sstream>
 #include <map>
 
+#if defined(_WIN32)
+// Hybrid-graphics laptops render programs without a driver profile on the
+// integrated GPU. These exports ask the NVIDIA and AMD drivers for the discrete
+// GPU; a per-program choice in the NVIDIA Control Panel still takes precedence.
+// They only work in the executable that creates the graphics device.
+extern "C" {
+__declspec(dllexport) unsigned long NvOptimusEnablement = 1;
+__declspec(dllexport) int AmdPowerXpressRequestHighPerformance = 1;
+}
+#endif
+
 namespace psprecomp { void register_generated_functions(Runtime &); }
 
 int main(int argc, char **argv) {

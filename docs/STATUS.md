@@ -487,3 +487,62 @@ counts, GE commands and the final frame, with work per frame falling from
 13.1 ms to 6.7 ms. These are measurements on a desktop with an idle GPU. They do
 not reproduce the handheld's slowdown, whose GPU wait the v0.4.8 log does not
 break out; the new `[renderer]` line does.
+
+## v0.4.10 Late frames stay visible; D3D11 frames no longer wait for the GPU
+
+A player on a Core i5-10300H / GTX 1650 laptop (Windows 11, default settings)
+reported under 10 FPS, never reaching 60. No log was attached.
+
+Since v0.4.6 a frame that was already late was not presented, for up to 100 ms
+of game time, whatever made it late. That helps when presenting blocks (a frame
+limiter or a display slower than the engine). When the host is late because of
+game work, a skipped presentation saves only its own time, about 0.2 ms on
+D3D11, and the next frame is just as late. While the host stayed behind, the
+picture updated once per 100 ms of game time: at most 10 FPS. The development
+PC's own default-settings D3D11 log already had 1,616 of 6,000 frames hidden
+with presentations averaging 213 us.
+
+- **Late frames stay visible.** When presentations have recently averaged less
+  than a quarter of a frame period (about 4 ms at 60 Hz), at most every other
+  late frame is skipped, so the picture keeps at least half the game's frame
+  rate. Expensive presentations are skipped as before. The pacing unit test
+  covers both cases.
+- **D3D11 frames no longer wait for the GPU**, as Vulkan has not since v0.4.9.
+  The frame's framebuffer copy is queued and lands in guest memory when the GPU
+  has finished it, normally at the next frame, and is completed at once when a
+  transfer, a framebuffer texture, the next draw into that buffer, a render-scale
+  change or `flush()` needs it. Pixels the game writes in between stay on top.
+  The window shows the displayed buffer from its GPU copy at every scale, and the
+  `[renderer]` line now reports D3D11 GPU waits. `SIMS2_TEST_SYNC_READBACK=1`
+  restores the old wait for measurement; the desktop launcher clears it.
+- **Laptops ask for the discrete GPU.** The runtime exports `NvOptimusEnablement`
+  and `AmdPowerXpressRequestHighPerformance`. D3D11 uses the default adapter,
+  and a hybrid-graphics laptop renders a program without a driver profile on its
+  integrated GPU. A per-program choice in NVIDIA Control Panel still applies.
+  Whether the reporter's game ran on the integrated GPU is not known; the
+  `[graphics] Direct3D 11 adapter:` log line names it.
+
+USA save load and gameplay, D3D11 at default settings (1920x1080, 4x, VSync),
+3,114 frames, paced hidden window, RX 6950 XT:
+
+| Case | Build | Presented | Shown per second | Speed | Dropouts | Readback per frame |
+|---|---|---|---|---|---|---|
+| Full CPU | v0.4.9 | 3,045 | 45.8 | 1.000 | 2 (373 ms) | 1,010 us |
+| Full CPU | v0.4.10 | 3,099 | 46.6 | 1.000 | 1 (346 ms) | 158 us |
+| CPU capped to 0.25 core | v0.4.9 | 2,261 | 22.6 | 0.652 | 41 (11.3 s) | 2,738 us |
+| CPU capped to 0.25 core | v0.4.10 | 2,619 | 26.9 | 0.676 | 33 (8.0 s) | 2,329 us |
+| 33 ms presentation | v0.4.10 | 961 | 14.4 | 0.999 | 1 (398 ms) | 153 us |
+
+"Shown per second" is presentations over the run's wall time, startup included.
+The CPU cap is the job-object stand-in used for v0.4.7: harsher and burstier than
+a slower 4-core laptop, not a measurement on the reporter's hardware. Under it
+v0.4.10 shows more frames, runs faster and loses less sound. An intermediate
+build that never skipped cheap late frames showed 3,053 frames under the same cap
+but lost more sound than v0.4.9 (10.3 s against 6.1 s in that pair of runs), so
+skipping every other one is kept. The 33 ms case simulates a blocking display;
+skipping still keeps the game at full speed. The Radeon 890M v0.4.8 log in issue
+#1 averaged 5.8 ms per presentation, above the threshold, so that handheld keeps
+skipping as before.
+
+A headless 3,114-frame run is identical to v0.4.9: guest time, GE commands, draw
+counts and the final frame. The GPU wait on a laptop GPU is not measured here.

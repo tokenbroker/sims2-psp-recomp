@@ -114,7 +114,11 @@ float4 ps(F f):SV_Target { return image.Sample(image_sampler,f.uv); }
 )";
 struct NativeRenderer::Impl {
     bool profile = std::getenv("SIMS2_PROFILE") != nullptr || std::getenv("SIMS2_FRAME_CSV") != nullptr;
-    std::uint64_t draw_ns{}, vertex_ns{}, hash_ns{}, upload_ns{}, flush_ns{}, texture_misses{}, flush_count{};
+    std::uint64_t draw_ns{}, vertex_ns{}, hash_ns{}, upload_ns{}, flush_ns{}, wait_ns{}, texture_misses{}, flush_count{};
+    // Test hook: wait for every frame's readback, as before v0.4.10.
+    bool deferred_readback = std::getenv("SIMS2_TEST_SYNC_READBACK") == nullptr;
+    // Guest memory of the running game, for readbacks completed outside a frame.
+    psprecomp::GuestMemory *frame_memory{};
     ComPtr<ID3D11Device> device; ComPtr<ID3D11DeviceContext> context;
     ComPtr<ID3D11VertexShader> vs; ComPtr<ID3D11PixelShader> ps;
     ComPtr<ID3D11InputLayout> layout; ComPtr<ID3D11Buffer> vertices, parameters;
@@ -152,13 +156,82 @@ struct NativeRenderer::Impl {
     std::uint32_t conversion_generation{};
     struct Target {
         RenderTarget guest; bool dirty{}, upload{true};
+        // While a readback is pending its pixels are not in guest memory yet,
+        // and snapshot holds what guest memory held when the readback started.
+        // Otherwise snapshot holds what guest memory held after the last one.
+        bool pending{};
+        // The game wrote into this buffer while a readback was pending, so
+        // guest memory, not the GPU copy, has the newest picture.
+        bool guest_modified{};
         std::vector<std::uint8_t> snapshot;
         ComPtr<ID3D11Texture2D> color, readback, depth, native_color;
+        ComPtr<ID3D11Query> done;
         ComPtr<ID3D11RenderTargetView> native_rtv;
         ComPtr<ID3D11ShaderResourceView> native_srv;
         ComPtr<ID3D11RenderTargetView> rtv; ComPtr<ID3D11ShaderResourceView> srv;
         ComPtr<ID3D11DepthStencilView> dsv;
     };
+    static std::size_t guest_size(const RenderTarget &guest) {
+        return std::size_t(guest.color_stride) * height * (guest.color_format == 3 ? 4u : 2u);
+    }
+    // Queues a copy of the target at PSP resolution. The pixels reach guest
+    // memory in finish_readback.
+    void start_readback(Target &t, psprecomp::GuestMemory &memory) {
+        context->OMSetRenderTargets(0, nullptr, nullptr);
+        ID3D11ShaderResourceView *none{}; context->PSSetShaderResources(0, 1, &none);
+        if (scale != 1) copy(t.srv.Get(), t.native_rtv.Get(), width, height);
+        context->CopyResource(t.readback.Get(), scale != 1 ? t.native_color.Get() : t.color.Get());
+        if (!t.done) {
+            D3D11_QUERY_DESC query{D3D11_QUERY_EVENT, 0};
+            check(device->CreateQuery(&query, &t.done), "Create readback query");
+        }
+        context->End(t.done.Get());
+        t.pending = true; t.dirty = false; t.upload = true;
+        // finish_readback replaces only pixels that still hold these values, so
+        // anything the game writes meanwhile stays on top, as if copied here.
+        const auto size = guest_size(t.guest);
+        if (const auto *raw = memory.raw_pointer(t.guest.color_address, size)) t.snapshot.assign(raw, raw + size);
+        else t.snapshot.clear();
+    }
+    void finish_readback(Target &t, psprecomp::GuestMemory &memory) {
+        t.pending = false;
+        D3D11_MAPPED_SUBRESOURCE mapped{};
+        const auto waiting = std::chrono::steady_clock::now();
+        check(context->Map(t.readback.Get(), 0, D3D11_MAP_READ, 0, &mapped), "Read GE framebuffer");
+        wait_ns += std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - waiting).count();
+        const auto &g = t.guest;
+        const unsigned bpp = g.color_format == 3 ? 4u : 2u, columns = std::min(width, g.color_stride);
+        const auto size = guest_size(g);
+        auto *raw = memory.raw_pointer(g.color_address, size);
+        bool kept_guest_pixels = false;
+        for (unsigned y = 0; y < height; ++y) {
+            const auto *pixels = reinterpret_cast<const std::uint32_t *>(static_cast<const std::uint8_t *>(mapped.pData) + y * mapped.RowPitch);
+            if (!raw) {
+                for (unsigned x = 0; x < columns; ++x) {
+                    const auto at = g.color_address + (y * g.color_stride + x) * bpp;
+                    if (bpp == 4) memory.store32(at, pixels[x]); else memory.store16(at, pack(pixels[x], g.color_format));
+                }
+                continue;
+            }
+            auto *row = raw + std::size_t(y) * g.color_stride * bpp;
+            const auto *before = t.snapshot.size() == size ? t.snapshot.data() + std::size_t(y) * g.color_stride * bpp : nullptr;
+            if (bpp == 4 && (!before || !std::memcmp(row, before, columns * 4u))) {
+                std::memcpy(row, pixels, columns * 4u);
+                continue;
+            }
+            for (unsigned x = 0; x < columns; ++x) {
+                auto *at = row + x * bpp;
+                if (before && std::memcmp(at, before + x * bpp, bpp)) { kept_guest_pixels = true; continue; }
+                if (bpp == 4) std::memcpy(at, pixels + x, 4);
+                else { const auto packed = pack(pixels[x], g.color_format); std::memcpy(at, &packed, 2); }
+            }
+        }
+        context->Unmap(t.readback.Get(), 0);
+        ++flush_count;
+        t.guest_modified = kept_guest_pixels;
+        if (!raw) raw = memory.raw_pointer(g.color_address, size);
+        if (raw) t.snapshot.assign(raw, raw + size); else t.snapshot.clear();
+    }
     std::map<std::tuple<std::uint32_t, std::uint32_t, std::uint32_t>, Target> targets;
     std::map<std::uint64_t, ComPtr<ID3D11ShaderResourceView>> textures;
     std::map<unsigned, ComPtr<ID3D11SamplerState>> samplers;
@@ -194,14 +267,17 @@ struct NativeRenderer::Impl {
             check(device->CreateDepthStencilView(out.depth.Get(), nullptr, &out.dsv), "Create depth view");
             context->ClearDepthStencilView(out.dsv.Get(), D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 0, 0);
         }
+        // Pixels still on their way back belong in guest memory before the
+        // game draws over this buffer again.
+        if (out.pending) finish_readback(out, memory);
         if (out.upload) {
-            const auto size=std::size_t(guest.color_stride)*height*(guest.color_format==3?4:2);
+            const auto size=guest_size(guest);
             const auto *source=memory.raw_pointer(guest.color_address,size);
-            if(source && out.snapshot.size()==size && std::memcmp(source,out.snapshot.data(),size)==0){out.upload=false;return out;}
+            if(source && !out.guest_modified && out.snapshot.size()==size && std::memcmp(source,out.snapshot.data(),size)==0){out.upload=false;return out;}
             auto *destination=scale!=1?out.native_color.Get():out.color.Get();
             const auto uploaded=[&]{
                 if(scale!=1)copy(out.native_srv.Get(),out.rtv.Get(),scaled_width(),scaled_height());
-                out.upload=false;
+                out.upload=false;out.guest_modified=false;
             };
             if (guest.color_format == 3u && guest.color_stride == width) {
                 const auto *pixels = memory.raw_pointer(guest.color_address, width * height * 4u);
@@ -273,7 +349,10 @@ NativeRenderer::~NativeRenderer() {
 void NativeRenderer::set_render_scale(float scale) {
     if(!std::isfinite(scale) || scale<0.5f || scale>16)throw psprecomp::Error("Render scale must be between 0.5 and 16");
     auto &r=*impl_;if(r.scale==scale)return;
-    for(const auto &[key,target]:r.targets)if(target.dirty)throw psprecomp::Error("Flush framebuffers before changing render scale");
+    for(auto &[key,target]:r.targets){
+        if(target.dirty)throw psprecomp::Error("Flush framebuffers before changing render scale");
+        if(target.pending && r.frame_memory)r.finish_readback(target,*r.frame_memory);
+    }
     r.context->OMSetRenderTargets(0,nullptr,nullptr);
     ID3D11ShaderResourceView *none{};r.context->PSSetShaderResources(0,1,&none);
     r.targets.clear();r.scale=scale;
@@ -289,11 +368,11 @@ void NativeRenderer::set_display_aspect(float aspect) {
 }
 ID3D11ShaderResourceView *NativeRenderer::presentation_view(const psprecomp::GuestMemory &memory,
     std::uint32_t address,unsigned stride,unsigned format) const {
-    const auto &r=*impl_;if(r.scale==1 && r.aspect_factor==1)return nullptr;
+    const auto &r=*impl_;
     const auto it=r.targets.find({address,stride,format});if(it==r.targets.end())return nullptr;
     const auto &t=it->second;
     const auto *source=memory.raw_pointer(address,t.snapshot.size());
-    if(t.dirty || t.snapshot.empty() || !source || std::memcmp(source,t.snapshot.data(),t.snapshot.size()))return nullptr;
+    if(t.dirty || t.guest_modified || t.snapshot.empty() || !source || std::memcmp(source,t.snapshot.data(),t.snapshot.size()))return nullptr;
     return t.srv.Get();
 }
 std::uint64_t NativeRenderer::draws() const noexcept { return impl_->count; }
@@ -301,25 +380,44 @@ std::uint64_t NativeRenderer::framebuffer_readbacks() const noexcept { return im
 ID3D11Device *NativeRenderer::device() const noexcept { return impl_->device.Get(); }
 ID3D11DeviceContext *NativeRenderer::context() const noexcept { return impl_->context.Get(); }
 NativeRenderer::ProfileStats NativeRenderer::profile_stats() const noexcept {
-    return {impl_->draw_ns, impl_->flush_ns, impl_->vertex_ns, 0};
+    return {impl_->draw_ns, impl_->flush_ns, impl_->vertex_ns, impl_->wait_ns};
 }
 void NativeRenderer::flush(psprecomp::GuestMemory &memory) {
     flush(memory, nullptr);
 }
-void NativeRenderer::flush_frame(psprecomp::GuestMemory &memory, std::uint32_t, unsigned, unsigned) {
-    flush(memory, nullptr);
+void NativeRenderer::flush_frame(psprecomp::GuestMemory &memory, std::uint32_t address, unsigned stride, unsigned format) {
+    auto &r = *impl_;
+    r.frame_memory = &memory;
+    if (!r.deferred_readback) { flush(memory, nullptr); return; }
+    ProfileScope timer(r.flush_ns, true);
+    const std::tuple<std::uint32_t, std::uint32_t, std::uint32_t> shown{address, stride, format};
+    const std::uint64_t shown_begin = address & 0x0FFFFFFFu, shown_end = shown_begin + std::uint64_t(stride) * height * (format == 3 ? 4u : 2u);
+    for (auto &[key, t] : r.targets) {
+        // Earlier frames arrive here once the GPU has finished them. A buffer
+        // drawn again before its last copy arrived waits for that copy, which
+        // also keeps the game from running further ahead of a slow GPU.
+        if (t.pending && (t.dirty || r.context->GetData(t.done.Get(), nullptr, 0, D3D11_ASYNC_GETDATA_DONOTFLUSH) == S_OK))
+            r.finish_readback(t, memory);
+        if (t.dirty) r.start_readback(t, memory);
+        if (!t.pending || key == shown) continue;
+        // The window shows the displayed buffer from its GPU copy. Any other
+        // buffer sharing that memory is shown from guest memory, so its pixels
+        // have to be there now.
+        const std::uint64_t begin = t.guest.color_address & 0x0FFFFFFFu, end = begin + Impl::guest_size(t.guest);
+        if (begin < shown_end && shown_begin < end) r.finish_readback(t, memory);
+    }
+    r.context->Flush();
 }
 void NativeRenderer::prepare_transfer(psprecomp::GuestMemory &memory, const BlockTransfer &transfer) {
     flush(memory, &transfer);
 }
 void NativeRenderer::flush(psprecomp::GuestMemory &memory, const BlockTransfer *transfer) {
     auto &r = *impl_; ProfileScope timer(r.flush_ns, true);
-    bool unbound = false;
     for (auto &[key, target] : r.targets) {
-        if (!target.dirty) continue;
+        if (!target.dirty && !target.pending) continue;
         if (transfer && transfer->width && transfer->height) {
             const std::uint64_t begin = target.guest.color_address & 0x0FFFFFFFu;
-            const auto end = begin + std::uint64_t(target.guest.color_stride) * height * (target.guest.color_format == 3 ? 4u : 2u);
+            const auto end = begin + Impl::guest_size(target.guest);
             const auto overlaps = [&](std::uint32_t address, std::uint32_t stride, std::uint32_t x, std::uint32_t y) {
                 const auto first = (address & 0x0FFFFFFFu) + (std::uint64_t(y) * stride + x) * transfer->bytes_per_pixel;
                 const auto last = first + (std::uint64_t(transfer->height - 1u) * stride + transfer->width) * transfer->bytes_per_pixel;
@@ -328,33 +426,11 @@ void NativeRenderer::flush(psprecomp::GuestMemory &memory, const BlockTransfer *
             if (!overlaps(transfer->source, transfer->source_stride, transfer->source_x, transfer->source_y) &&
                 !overlaps(transfer->destination, transfer->destination_stride, transfer->destination_x, transfer->destination_y)) continue;
         }
-        if (!unbound) {
-            r.context->OMSetRenderTargets(0, nullptr, nullptr);
-            ID3D11ShaderResourceView *none{}; r.context->PSSetShaderResources(0, 1, &none);
-            unbound = true;
+        if (target.dirty) {
+            if (target.pending) r.finish_readback(target, memory);
+            r.start_readback(target, memory);
         }
-        ++r.flush_count;
-        if(r.scale!=1)r.copy(target.srv.Get(),target.native_rtv.Get(),width,height);
-        r.context->CopyResource(target.readback.Get(), r.scale!=1?target.native_color.Get():target.color.Get());
-        D3D11_MAPPED_SUBRESOURCE mapped{}; check(r.context->Map(target.readback.Get(), 0, D3D11_MAP_READ, 0, &mapped), "Read GE framebuffer");
-        const auto &guest = target.guest; const auto bpp = guest.color_format == 3 ? 4u : 2u;
-        auto *destination = memory.raw_pointer(guest.color_address, static_cast<std::size_t>(guest.color_stride) * height * bpp);
-        for (unsigned y = 0; y < height; ++y) {
-            const auto *pixels = reinterpret_cast<const std::uint32_t *>(static_cast<const std::uint8_t *>(mapped.pData) + y * mapped.RowPitch);
-            if (bpp == 4u && destination) {
-                std::memcpy(destination + y * guest.color_stride * 4u, pixels, std::min(width, guest.color_stride) * 4u);
-                continue;
-            }
-            for (unsigned x = 0; x < std::min(width, guest.color_stride); ++x) {
-                const auto at = guest.color_address + (y * guest.color_stride + x) * bpp;
-                if (bpp == 4) memory.store32(at, pixels[x]); else memory.store16(at, pack(pixels[x], guest.color_format));
-            }
-        }
-        r.context->Unmap(target.readback.Get(), 0); target.dirty = false; target.upload = true;
-        if((r.scale!=1 || r.aspect_factor!=1) && destination){
-            const auto size=std::size_t(guest.color_stride)*height*bpp;
-            target.snapshot.assign(destination,destination+size);
-        }
+        r.finish_readback(target, memory);
     }
 }
 void NativeRenderer::draw(psprecomp::GuestMemory &memory, const DrawCall &call) {
@@ -370,7 +446,7 @@ void NativeRenderer::draw(psprecomp::GuestMemory &memory, const DrawCall &call) 
         for (const auto &[key, target] : impl_->targets) {
             const auto begin = target.guest.color_address & 0x0FFFFFFFu;
             const auto size = target.guest.color_stride * height * (target.guest.color_format == 3u ? 4u : 2u);
-            feedback |= target.dirty && address >= begin && address - begin < size;
+            feedback |= (target.dirty || target.pending) && address >= begin && address - begin < size;
         }
         if (feedback) flush(memory);
     }

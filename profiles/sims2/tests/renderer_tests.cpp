@@ -187,8 +187,10 @@ int main(int argc,char **argv) {
             call.vertices[0].position = {100,100,0,1}; call.vertices[1].position = {120,120,0,1};
             late.draw(memory, call);
             late.flush_frame(memory, call.target.color_address, 512, 3);
+            require(late.framebuffer_readbacks() == 0, "Frame end waited for its readback");
             memory.store32(pixel(105, 105), 0xFF123456u);
             late.flush(memory);
+            require(late.framebuffer_readbacks() == 1, "Flush did not complete the queued readback");
             require(memory.load32(pixel(105, 105)) == 0xFF123456u, "Late readback overwrote a pixel the game wrote");
             require(memory.load32(pixel(106, 105)) == 0xFF0000FFu, "Late readback lost rendered pixels");
             call.vertices[0].position = {140,100,0,1}; call.vertices[1].position = {150,120,0,1};

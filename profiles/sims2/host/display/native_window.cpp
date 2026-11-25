@@ -48,6 +48,27 @@ struct NativeWindow::Impl {
     }
     HANDLE frame_timer{};
     std::vector<std::uint32_t> pixels = std::vector<std::uint32_t>(480u * 272u);
+    // Last displayed framebuffer; its rendered pixels may reach guest memory
+    // after present() converted it.
+    Display::Framebuffer shown{};
+    void convert(const psprecomp::GuestMemory &memory) {
+        const auto &frame = shown;
+        const auto bpp = frame.pixel_format == 3u ? 4u : 2u;
+        const auto byte_size = static_cast<std::size_t>(frame.buffer_width) * 272u * bpp;
+        if (const auto *source = memory.raw_pointer(frame.address, byte_size)) {
+            if (!convert_framebuffer_pixels({source, byte_size}, frame.buffer_width, 480, 272, frame.pixel_format, pixels))
+                throw psprecomp::Error("Invalid native framebuffer conversion");
+        } else for (unsigned y = 0; y < 272; ++y) for (unsigned x = 0; x < 480; ++x) {
+            const auto address = frame.address + (y * frame.buffer_width + x) * bpp;
+            const auto raw = bpp == 4 ? memory.load32(address) : memory.load16(address);
+            std::uint32_t r{}, g{}, b{};
+            if (frame.pixel_format == 3u) { r = raw & 255u; g = (raw >> 8) & 255u; b = (raw >> 16) & 255u; }
+            else if (frame.pixel_format == 0u) { r = (raw & 31u) * 255u / 31u; g = ((raw >> 5) & 63u) * 255u / 63u; b = ((raw >> 11) & 31u) * 255u / 31u; }
+            else if (frame.pixel_format == 1u) { r = (raw & 31u) * 255u / 31u; g = ((raw >> 5) & 31u) * 255u / 31u; b = ((raw >> 10) & 31u) * 255u / 31u; }
+            else { r = (raw & 15u) * 17u; g = ((raw >> 4) & 15u) * 17u; b = ((raw >> 8) & 15u) * 17u; }
+            pixels[y * 480 + x] = (r << 16) | (g << 8) | b;
+        }
+    }
     BITMAPINFO bitmap{};
     bool closed{};
     bool reset_pacing{};
@@ -177,8 +198,9 @@ NativeWindow::~NativeWindow() {
     if (impl_->window) DestroyWindow(impl_->window);
 }
 void *NativeWindow::native_handle() const noexcept { return impl_->window; }
-// The D3D11 renderer completes every frame in guest memory before present().
-void NativeWindow::refresh_pixels(const psprecomp::GuestMemory &) {}
+// The D3D11 renderer may complete a frame in guest memory after present();
+// reconvert the last displayed frame once it has (after a renderer flush).
+void NativeWindow::refresh_pixels(const psprecomp::GuestMemory &memory) { if (impl_->shown.address) impl_->convert(memory); }
 std::uint64_t NativeWindow::presented_frames() const noexcept{return impl_->overlay?impl_->overlay->presented_frames():0;}
 HostSettings NativeWindow::settings() const { return impl_->settings; }
 void NativeWindow::set_audio_control(std::function<void(float)> control) {
@@ -286,20 +308,8 @@ bool NativeWindow::present(const psprecomp::GuestMemory &memory, const Display::
     if (!frame.address || frame.buffer_width < 480u || frame.pixel_format > 3u ||
         !memory.contains(frame.address, static_cast<std::size_t>(frame.buffer_width) * 272u * bpp)) return true;
     const auto conversion_start = p.profile ? std::chrono::steady_clock::now() : std::chrono::steady_clock::time_point{};
-    const auto byte_size = static_cast<std::size_t>(frame.buffer_width) * 272u * bpp;
-    if (const auto *source = memory.raw_pointer(frame.address, byte_size)) {
-        if (!convert_framebuffer_pixels({source, byte_size}, frame.buffer_width, 480, 272, frame.pixel_format, p.pixels))
-            throw psprecomp::Error("Invalid native framebuffer conversion");
-    } else for (unsigned y = 0; y < 272; ++y) for (unsigned x = 0; x < 480; ++x) {
-        const auto address = frame.address + (y * frame.buffer_width + x) * bpp;
-        const auto raw = bpp == 4 ? memory.load32(address) : memory.load16(address);
-        std::uint32_t r{}, g{}, b{};
-        if (frame.pixel_format == 3u) { r = raw & 255u; g = (raw >> 8) & 255u; b = (raw >> 16) & 255u; }
-        else if (frame.pixel_format == 0u) { r = (raw & 31u) * 255u / 31u; g = ((raw >> 5) & 63u) * 255u / 63u; b = ((raw >> 11) & 31u) * 255u / 31u; }
-        else if (frame.pixel_format == 1u) { r = (raw & 31u) * 255u / 31u; g = ((raw >> 5) & 31u) * 255u / 31u; b = ((raw >> 10) & 31u) * 255u / 31u; }
-        else { r = (raw & 15u) * 17u; g = ((raw >> 4) & 15u) * 17u; b = ((raw >> 8) & 15u) * 17u; }
-        p.pixels[y * 480 + x] = (r << 16) | (g << 8) | b;
-    }
+    p.shown = frame;
+    p.convert(memory);
     if (p.profile) p.conversion_ns += std::chrono::duration_cast<std::chrono::nanoseconds>(
         std::chrono::steady_clock::now() - conversion_start).count();
     const auto *capture_frame = std::getenv("SIMS2_CAPTURE_FRAME");
