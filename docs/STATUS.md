@@ -546,3 +546,10 @@ skipping as before.
 
 A headless 3,114-frame run is identical to v0.4.9: guest time, GE commands, draw
 counts and the final frame. The GPU wait on a laptop GPU is not measured here.
+
+## v0.4.11 D3D11 shutdown on AMD
+
+Release renderer resources and flush deferred destruction before dropping
+the D3D11 device. On the RX 6950 XT, the previous build intermittently faulted
+inside the AMD driver during final device release. Local patched replays
+exited cleanly in six Dente House runs and four Beaker House runs.

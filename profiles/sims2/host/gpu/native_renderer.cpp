@@ -339,12 +339,18 @@ NativeRenderer::NativeRenderer(bool warp) : impl_(std::make_unique<Impl>()) {
     check(r.device->CreateRasterizerState(&raster,&r.copy_raster),"Create framebuffer rasterizer");
 }
 NativeRenderer::~NativeRenderer() {
-    const auto &r = *impl_;
+    auto &r = *impl_;
     if (r.profile) std::cerr << "[profile] renderer_draw_ms=" << r.draw_ns / 1000000.0
         << " vertex_conversion_ms=" << r.vertex_ns / 1000000.0
         << " texture_hash_ms=" << r.hash_ns / 1000000.0 << " texture_upload_ms=" << r.upload_ns / 1000000.0
         << " framebuffer_flush_ms=" << r.flush_ns / 1000000.0 << " texture_misses=" << r.texture_misses
         << " framebuffer_readbacks=" << r.flush_count << '\n';
+    // Drain deferred resource destruction before the final device release.
+    auto device = std::move(r.device);
+    auto context = std::move(r.context);
+    impl_.reset();
+    context->ClearState();
+    context->Flush();
 }
 void NativeRenderer::set_render_scale(float scale) {
     if(!std::isfinite(scale) || scale<0.5f || scale>16)throw psprecomp::Error("Render scale must be between 0.5 and 16");
